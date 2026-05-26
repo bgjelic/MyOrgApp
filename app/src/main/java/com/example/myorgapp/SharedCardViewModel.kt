@@ -1,0 +1,447 @@
+package com.example.myorgapp
+
+import android.app.AlarmManager
+import android.app.Application
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.util.Log
+import androidx.lifecycle.AndroidViewModel
+import java.util.Calendar
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+
+class SharedCardViewModel(application: Application) : AndroidViewModel(application) {
+    private val prefs = application.getSharedPreferences("card_pref", Context.MODE_PRIVATE)
+    private val gson = Gson()
+    private val _cards = MutableStateFlow<List<CardItem>>(emptyList())
+    val cards: StateFlow<List<CardItem>> = _cards
+
+    private val _completedCards = MutableStateFlow<List<CardItem>>(emptyList())
+    val completedCards: StateFlow<List<CardItem>> = _completedCards
+
+    private val _editing = MutableStateFlow<CardItem?>(null)
+    val editing: StateFlow<CardItem?> = _editing
+
+    private val _settings = MutableStateFlow(Settings())
+    val settings: StateFlow<Settings> = _settings
+
+    private var nextId = 0L
+
+    init {
+        loadSettings()
+        val saved = loadFromPrefs()
+        _cards.value = saved
+        nextId = (saved.maxOfOrNull { it.id } ?: 0L) + 1L
+        _completedCards.value = loadCompletedFromPrefs()
+        runDailyScanIfNeeded()
+    }
+
+    fun setEditing(card: CardItem?) {
+        _editing.value = if (card == null) null
+        else _cards.value.find { it.id == card.id } ?: card
+    }
+
+    fun addCard(
+        name: String,
+        description: String,
+        dateCompleted: String? = null,
+        finished: Boolean = false,
+        taskSetTimeStart: String? = null,
+        taskSetTimeEnd: String? = null,
+        reminderMinutesBefore: Int? = null,
+        reminderCustomTime: String? = null,
+        repeatType: RepeatType = RepeatType.NONE,
+        repeatDaysOfWeek: List<Int>? = null,
+        repeatEndDate: String? = null,
+        repeatSkipDates: String? = null
+    ) {
+        val card = CardItem(
+            id = nextId++,
+            name = name,
+            description = description,
+            dateCreated = DateHelper.todayDate(),
+            dateCompleted = dateCompleted,
+            finished = finished,
+            taskSetTimeStart = taskSetTimeStart,
+            taskSetTimeEnd = taskSetTimeEnd,
+            reminderMinutesBefore = reminderMinutesBefore,
+            reminderCustomTime = reminderCustomTime,
+            repeatType = repeatType,
+            repeatDaysOfWeek = repeatDaysOfWeek,
+            repeatEndDate = repeatEndDate,
+            repeatSkipDates = repeatSkipDates
+        )
+        _cards.update { it + card }
+        scheduleReminder(card)
+        persistAsync()
+    }
+
+    fun updateCard(updated: CardItem) {
+        val old = _cards.value.find { it.id == updated.id }
+        old?.let { cancelReminder(it) }
+        _cards.update { list -> list.map { if (it.id == updated.id) updated else it } }
+        scheduleReminder(updated)
+        persistAsync()
+    }
+
+    fun deleteCard(id: Long) {
+        val card = _cards.value.find { it.id == id }
+        card?.let { cancelReminder(it) }
+        _cards.update { list -> list.filterNot { it.id == id } }
+        persistAsync()
+    }
+
+    fun toggleFinished(card: CardItem) {
+        val original = _cards.value.find { it.id == card.id } ?: return
+        if (original.finished) {
+            updateCard(original.copy(finished = false, dateCompleted = null))
+        } else {
+            if (original.repeatType != RepeatType.NONE) {
+                val nextDate = DateHelper.computeNextDate(
+                    currentDate = original.dateCreated ?: DateHelper.todayDate(),
+                    repeatType = original.repeatType,
+                    daysOfWeek = original.repeatDaysOfWeek,
+                    skipDates = parseSkipDates(original.repeatSkipDates),
+                    endDate = original.repeatEndDate
+                )
+                if (nextDate != null) {
+                    updateCard(original.copy(
+                        dateCreated = nextDate,
+                        finished = false,
+                        dateCompleted = null
+                    ))
+                } else {
+                    updateCard(original.copy(finished = true, dateCompleted = DateHelper.todayDate()))
+                }
+            } else {
+                updateCard(original.copy(finished = true, dateCompleted = DateHelper.todayDate()))
+            }
+        }
+    }
+
+    fun getCardsForDate(dateStr: String): List<CardItem> {
+        val result = mutableListOf<CardItem>()
+        for (card in _cards.value) {
+            val timeMatch = card.taskSetTimeStart?.let { start ->
+                try {
+                    val startDate = DateHelper.getDatePart(start)
+                    val endDate = card.taskSetTimeEnd?.let { DateHelper.getDatePart(it) }
+                    startDate == dateStr || endDate == dateStr
+                } catch (_: Exception) { false }
+            } ?: false
+            if (timeMatch) {
+                result.add(card)
+                continue
+            }
+            if (card.repeatType == RepeatType.NONE) continue
+            val createdDate = card.dateCreated ?: continue
+            if (DateHelper.isDateMatchingRepeat(
+                    date = dateStr,
+                    repeatType = card.repeatType,
+                    createdDate = createdDate,
+                    daysOfWeek = card.repeatDaysOfWeek,
+                    endDate = card.repeatEndDate,
+                    skipDates = parseSkipDates(card.repeatSkipDates)
+                )
+            ) {
+                val time = card.taskSetTimeStart?.let { DateHelper.getTimePart(it) }
+                result.add(if (time != null) {
+                    card.copy(taskSetTimeStart = "$dateStr${'T'}$time")
+                } else {
+                    card.copy(taskSetTimeStart = dateStr)
+                })
+            }
+        }
+        return result
+    }
+
+    fun getCardsForWeek(startOfWeek: String): List<CardItem> {
+        val endOfWeek = DateHelper.addDays(startOfWeek, 6)
+        val result = mutableListOf<CardItem>()
+        for (card in _cards.value) {
+            val datesInWeek = mutableSetOf<String>()
+
+            card.taskSetTimeStart?.let { start ->
+                try {
+                    val sd = DateHelper.getDatePart(start)
+                    if (sd >= startOfWeek && sd <= endOfWeek) {
+                        datesInWeek.add(sd)
+                    }
+                } catch (_: Exception) {}
+            }
+
+            if (card.repeatType != RepeatType.NONE) {
+                val createdDate = card.dateCreated ?: continue
+                var day = startOfWeek
+                while (day <= endOfWeek) {
+                    if (DateHelper.isDateMatchingRepeat(
+                            date = day,
+                            repeatType = card.repeatType,
+                            createdDate = createdDate,
+                            daysOfWeek = card.repeatDaysOfWeek,
+                            endDate = card.repeatEndDate,
+                            skipDates = parseSkipDates(card.repeatSkipDates)
+                        )
+                    ) {
+                        datesInWeek.add(day)
+                    }
+                    day = DateHelper.addDays(day, 1)
+                }
+            }
+
+            val time = card.taskSetTimeStart?.let { DateHelper.getTimePart(it) }
+            for (date in datesInWeek.sorted()) {
+                result.add(if (time != null) {
+                    card.copy(taskSetTimeStart = "$date${'T'}$time")
+                } else {
+                    card.copy(taskSetTimeStart = date)
+                })
+            }
+        }
+        return result
+    }
+
+    fun getCardsForMonth(yearMonth: String): List<CardItem> {
+        val result = mutableListOf<CardItem>()
+        for (card in _cards.value) {
+            val datesInMonth = mutableSetOf<String>()
+
+            card.taskSetTimeStart?.let { start ->
+                try {
+                    if (DateHelper.getYearMonth(start) == yearMonth) {
+                        datesInMonth.add(DateHelper.getDatePart(start))
+                    }
+                } catch (_: Exception) {}
+            }
+
+            if (card.repeatType != RepeatType.NONE) {
+                val createdDate = card.dateCreated ?: continue
+                val parts = yearMonth.split("-")
+                val firstOfMonth = "${parts[0]}-${parts[1]}-01"
+                val daysInMonth = DateHelper.getDaysInMonth(firstOfMonth)
+                for (d in 1..daysInMonth) {
+                    val day = "$yearMonth-${"%02d".format(d)}"
+                    if (DateHelper.isDateMatchingRepeat(
+                            date = day,
+                            repeatType = card.repeatType,
+                            createdDate = createdDate,
+                            daysOfWeek = card.repeatDaysOfWeek,
+                            endDate = card.repeatEndDate,
+                            skipDates = parseSkipDates(card.repeatSkipDates)
+                        )
+                    ) {
+                        datesInMonth.add(day)
+                    }
+                }
+            }
+
+            val time = card.taskSetTimeStart?.let { DateHelper.getTimePart(it) }
+            for (date in datesInMonth.sorted()) {
+                result.add(if (time != null) {
+                    card.copy(taskSetTimeStart = "$date${'T'}$time")
+                } else {
+                    card.copy(taskSetTimeStart = date)
+                })
+            }
+        }
+        return result
+    }
+
+    fun deleteCompletedCard(id: Long) {
+        _completedCards.update { list -> list.filterNot { it.id == id } }
+        persistCompletedAsync()
+    }
+
+    fun updateSettings(newSettings: Settings) {
+        _settings.value = newSettings
+        saveSettings()
+    }
+
+    private fun computeTriggerTime(card: CardItem): Long? {
+        if (card.reminderCustomTime != null) {
+            return try {
+                val cal = DateHelper.parseDateTime(card.reminderCustomTime)
+                if (cal.before(DateHelper.nowCal())) {
+                    cal.add(Calendar.DAY_OF_MONTH, 1)
+                    if (cal.before(DateHelper.nowCal())) null else cal.timeInMillis
+                } else cal.timeInMillis
+            } catch (e: Exception) {
+                Log.e("Reminder", "computeTriggerTime custom parse failed for card ${card.id}: $e")
+                null
+            }
+        }
+        val minutesBefore = card.reminderMinutesBefore ?: return null
+        val start = card.taskSetTimeStart ?: return null
+        return try {
+            val cal = if (start.contains("T")) {
+                DateHelper.parseDateTime(start)
+            } else {
+                val s = _settings.value
+                DateHelper.parseDate(start).apply {
+                    set(Calendar.HOUR_OF_DAY, s.defaultReminderHour)
+                    set(Calendar.MINUTE, s.defaultReminderMinute)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+            }
+            cal.add(Calendar.MINUTE, -minutesBefore)
+            if (cal.before(DateHelper.nowCal())) {
+                cal.add(Calendar.DAY_OF_MONTH, 1)
+                if (cal.before(DateHelper.nowCal())) null else cal.timeInMillis
+            } else cal.timeInMillis
+        } catch (e: Exception) {
+            Log.e("Reminder", "computeTriggerTime parse failed for card ${card.id}: $e")
+            null
+        }
+    }
+
+    private fun scheduleReminder(card: CardItem) {
+        if (card.finished) {
+            Log.d("Reminder", "scheduleReminder: card ${card.id} is finished, skipping")
+            return
+        }
+        val triggerAt = computeTriggerTime(card)
+        if (triggerAt == null) {
+            Log.e("Reminder", "scheduleReminder: computeTriggerTime returned null for card ${card.id}")
+            return
+        }
+        Log.d("Reminder", "scheduleReminder: card ${card.id}, triggerAt=$triggerAt")
+        val context = getApplication<Application>()
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, ReminderReceiver::class.java).apply {
+            putExtra(NotificationHelper.EXTRA_CARD_ID, card.id)
+            putExtra(NotificationHelper.EXTRA_CARD_NAME, card.name)
+            putExtra(NotificationHelper.EXTRA_CARD_DESC, card.description)
+        }
+        val pi = PendingIntent.getBroadcast(
+            context, card.id.toInt(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            alarmManager.canScheduleExactAlarms()
+        ) {
+            try {
+                Log.d("Reminder", "scheduleReminder: using setAlarmClock")
+                alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, null), pi)
+                Log.d("Reminder", "scheduleReminder: setAlarmClock succeeded")
+                return
+            } catch (e: Exception) {
+                Log.e("Reminder", "scheduleReminder: setAlarmClock failed for card ${card.id}: $e")
+            }
+        }
+        try {
+            Log.d("Reminder", "scheduleReminder: using setWindow (fallback)")
+            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, 60_000, pi)
+            Log.d("Reminder", "scheduleReminder: setWindow succeeded")
+        } catch (e: Exception) {
+            Log.e("Reminder", "scheduleReminder: setWindow also failed for card ${card.id}: $e")
+        }
+    }
+
+    private fun cancelReminder(card: CardItem) {
+        val context = getApplication<Application>()
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, ReminderReceiver::class.java)
+        val pi = PendingIntent.getBroadcast(
+            context, card.id.toInt(), intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        pi?.let {
+            alarmManager.cancel(it)
+            it.cancel()
+        }
+    }
+
+    private fun runDailyScanIfNeeded() {
+        val s = _settings.value
+        val nowCal = DateHelper.nowCal()
+        val todayDate = DateHelper.todayDate()
+        val lastScan = prefs.getString("last_scan_date", null)
+
+        val dayStartTodayCal = DateHelper.parseDateTime(
+            DateHelper.atTime(todayDate, s.dayStartsHour, s.dayStartsMinute)
+        )
+
+        if (lastScan != todayDate && !nowCal.before(dayStartTodayCal)) {
+            val yesterday = DateHelper.addDays(todayDate, -1)
+            val (toMove, remaining) = _cards.value.partition {
+                it.finished && it.dateCompleted == yesterday
+            }
+            if (toMove.isNotEmpty()) {
+                _cards.value = remaining
+                _completedCards.update { it + toMove }
+                persistCompletedAsync()
+                persistAsync()
+            }
+            prefs.edit().putString("last_scan_date", todayDate).apply()
+        }
+    }
+
+    private fun parseSkipDates(json: String?): List<String>? {
+        if (json == null) return null
+        return try {
+            val arr = gson.fromJson(json, Array<String>::class.java)
+            arr?.toList()
+        } catch (_: Exception) { null }
+    }
+
+    private fun loadFromPrefs(): List<CardItem> {
+        val json = prefs.getString("cards_json", null) ?: return emptyList()
+        return try {
+            val type = object : TypeToken<List<CardItem>>() {}.type
+            gson.fromJson(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun loadCompletedFromPrefs(): List<CardItem> {
+        val json = prefs.getString("completed_cards_json", null) ?: return emptyList()
+        return try {
+            val type = object : TypeToken<List<CardItem>>() {}.type
+            gson.fromJson(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun loadSettings() {
+        val hour = prefs.getInt("settings_day_starts_hour", 3)
+        val minute = prefs.getInt("settings_day_starts_minute", 0)
+        val themeModeStr = prefs.getString("settings_theme_mode", ThemeMode.SYSTEM.name)
+        val themeMode = try {
+            ThemeMode.valueOf(themeModeStr ?: ThemeMode.SYSTEM.name)
+        } catch (_: Exception) {
+            ThemeMode.SYSTEM
+        }
+        val remHour = prefs.getInt("settings_default_reminder_hour", 9)
+        val remMinute = prefs.getInt("settings_default_reminder_minute", 0)
+        _settings.value = Settings(hour, minute, themeMode, remHour, remMinute)
+    }
+
+    private fun persistAsync() {
+        val json = gson.toJson(_cards.value)
+        prefs.edit().putString("cards_json", json).apply()
+    }
+
+    private fun persistCompletedAsync() {
+        val json = gson.toJson(_completedCards.value)
+        prefs.edit().putString("completed_cards_json", json).apply()
+    }
+
+    private fun saveSettings() {
+        val s = _settings.value
+        prefs.edit()
+            .putInt("settings_day_starts_hour", s.dayStartsHour)
+            .putInt("settings_day_starts_minute", s.dayStartsMinute)
+            .putString("settings_theme_mode", s.themeMode.name)
+            .putInt("settings_default_reminder_hour", s.defaultReminderHour)
+            .putInt("settings_default_reminder_minute", s.defaultReminderMinute)
+            .apply()
+    }
+}
