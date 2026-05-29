@@ -22,7 +22,7 @@ fun DayView(
     onToggleFinished: (CardItem) -> Unit
 ) {
     val timedTasks = tasks
-        .filter { it.taskSetTimeStart != null }
+        .filter { !it.taskSetTimeStart.isNullOrBlank() }
         .sortedBy { it.taskSetTimeStart }
 
     val allDayTasks = tasks.filter { it.taskSetTimeStart == null }

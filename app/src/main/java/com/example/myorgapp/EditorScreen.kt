@@ -88,7 +88,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     var name by remember { mutableStateOf(editing?.name ?: "") }
     var description by remember { mutableStateOf(editing?.description ?: "") }
     var nameHasError by remember { mutableStateOf(false) }
-    var taskSetTimeStart by remember { mutableStateOf(editing?.taskSetTimeStart ?: "") }
+    var taskSetTimeStart by remember { mutableStateOf(editing?.taskSetTimeStart ?: DateHelper.todayDate()) }
     var taskSetTimeEnd by remember { mutableStateOf(editing?.taskSetTimeEnd ?: "") }
     var reminderMinutesBefore by remember { mutableStateOf(editing?.reminderMinutesBefore) }
     var reminderCustomTime by remember { mutableStateOf(editing?.reminderCustomTime) }
@@ -476,7 +476,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                         viewModel.addCard(
                             name = name.trim(),
                             description = description.trim(),
-                            taskSetTimeStart = taskSetTimeStart.ifBlank { null },
+                            taskSetTimeStart = taskSetTimeStart.ifBlank { DateHelper.todayDate() },
                             taskSetTimeEnd = taskSetTimeEnd.ifBlank { null },
                             reminderMinutesBefore = reminderMinutesBefore,
                             reminderCustomTime = reminderCustomTime,
@@ -492,7 +492,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                         val updated = current.copy(
                             name = name.trim(),
                             description = description.trim(),
-                            taskSetTimeStart = taskSetTimeStart.ifBlank { null },
+                            taskSetTimeStart = taskSetTimeStart.ifBlank { DateHelper.todayDate() },
                             taskSetTimeEnd = taskSetTimeEnd.ifBlank { null },
                             reminderMinutesBefore = reminderMinutesBefore,
                             reminderCustomTime = reminderCustomTime,

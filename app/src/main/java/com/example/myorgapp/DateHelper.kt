@@ -23,7 +23,12 @@ object DateHelper {
     }
 
     fun parseDateTime(s: String): Calendar = Calendar.getInstance().apply {
-        time = dateTimeFmt.parse(s)!!
+        val clean = s.substringBefore(" ").trim()
+        time = try {
+            dateTimeFmt.parse(clean)!!
+        } catch (_: Exception) {
+            try { dateFmt.parse(clean)!! } catch (_: Exception) { Calendar.getInstance().time }
+        }
     }
 
     fun formatDate(cal: Calendar): String = dateFmt.format(cal.time)
