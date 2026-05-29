@@ -16,9 +16,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -82,53 +79,51 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Scaffold { innerPadding ->
-                    NavHost(
-                        navController = navController,
-                        startDestination = "main",
-                        modifier = Modifier.padding(innerPadding)
-                    ) {
-                        composable("main") {
-                            MainScreen(
-                                viewModel = viewModel,
-                                onAdd = {
-                                    viewModel.setEditing(null)
-                                    navController.navigate("editor")
-                                },
-                                onEdit = { card: CardItem ->
-                                    viewModel.setEditing(card)
-                                    navController.navigate("editor")
-                                },
-                                onDelete = { id -> viewModel.deleteCard(id) },
-                                onToggleFinished = { card -> viewModel.toggleFinished(card) },
-                                onDeleteCompleted = { id -> viewModel.deleteCompletedCard(id) },
-                                onSettings = { navController.navigate("settings") },
-                                onCalendar = { navController.navigate("calendar") }
-                            )
-                        }
-                        composable("editor") {
-                            EditorScreen(
-                                viewModel = viewModel,
-                                onDone = { navController.popBackStack() }
-                            )
-                        }
-                        composable("settings") {
-                            SettingsScreen(
-                                viewModel = viewModel,
-                                onDone = { navController.popBackStack() }
-                            )
-                        }
-                        composable("calendar") {
-                            CalendarScreen(
-                                viewModel = viewModel,
-                                onBack = { navController.popBackStack() },
-                                onDayDrill = { card: CardItem ->
-                                    viewModel.setEditing(card)
-                                    navController.navigate("editor")
-                                },
-                                onToggleFinished = { card -> viewModel.toggleFinished(card) }
-                            )
-                        }
+                NavHost(
+                    navController = navController,
+                    startDestination = "main",
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    composable("main") {
+                        MainScreen(
+                            viewModel = viewModel,
+                            onAdd = {
+                                viewModel.setEditing(null)
+                                navController.navigate("editor")
+                            },
+                            onEdit = { card: CardItem ->
+                                viewModel.setEditing(card)
+                                navController.navigate("editor")
+                            },
+                            onDelete = { id -> viewModel.deleteCard(id) },
+                            onToggleFinished = { card -> viewModel.toggleFinished(card) },
+                            onDeleteCompleted = { id -> viewModel.deleteCompletedCard(id) },
+                            onSettings = { navController.navigate("settings") },
+                            onCalendar = { navController.navigate("calendar") }
+                        )
+                    }
+                    composable("editor") {
+                        EditorScreen(
+                            viewModel = viewModel,
+                            onDone = { navController.popBackStack() }
+                        )
+                    }
+                    composable("settings") {
+                        SettingsScreen(
+                            viewModel = viewModel,
+                            onDone = { navController.popBackStack() }
+                        )
+                    }
+                    composable("calendar") {
+                        CalendarScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() },
+                            onDayDrill = { card: CardItem ->
+                                viewModel.setEditing(card)
+                                navController.navigate("editor")
+                            },
+                            onToggleFinished = { card -> viewModel.toggleFinished(card) }
+                        )
                     }
                 }
             }

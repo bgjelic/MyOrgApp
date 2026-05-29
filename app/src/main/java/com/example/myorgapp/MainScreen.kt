@@ -224,25 +224,27 @@ fun MainScreen(
             when (selectedTab) {
                 0 -> {
                     val today = DateHelper.todayDate()
-                    val todayCards = viewModel.getCardsForDate(today)
+                    val todayCards = remember(cards) { viewModel.getCardsForDate(today) }
                     val totalToday = todayCards.size
                     val completedToday = todayCards.count { it.finished }
-                    val sortedCards = filteredCards.sortedWith(compareBy<CardItem> { card ->
-                        when {
-                            card.finished -> 4L
-                            card.taskSetTimeStart == null -> 3L
-                            DateHelper.getDatePart(card.taskSetTimeStart) < today -> 0L
-                            DateHelper.getDatePart(card.taskSetTimeStart) == today -> 1L
-                            else -> 2L
-                        }
-                    }.thenBy { it.taskSetTimeStart })
+                    val sortedCards = remember(filteredCards) {
+                        filteredCards.sortedWith(compareBy<CardItem> { card ->
+                            when {
+                                card.finished -> 4L
+                                card.taskSetTimeStart == null -> 3L
+                                DateHelper.getDatePart(card.taskSetTimeStart) < today -> 0L
+                                DateHelper.getDatePart(card.taskSetTimeStart) == today -> 1L
+                                else -> 2L
+                            }
+                        }.thenBy { it.taskSetTimeStart })
+                    }
 
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                         placeholder = { Text("Search cards...") },
                         singleLine = true,
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
@@ -322,7 +324,7 @@ fun MainScreen(
                                 }
                             }
                             items(sortedCards) { card ->
-                                val overdueInfo = getOverdueInfo(card)
+                                val overdueInfo = remember(card) { getOverdueInfo(card) }
                                 ActiveCardRow(
                                     card = card,
                                     tags = tags,
@@ -337,7 +339,7 @@ fun MainScreen(
                     }
                 }
                  1 -> {
-                    val completedRepeats = cards.filter { it.repeatType != RepeatType.NONE && it.repeatCompletionCount > 0 }
+                    val completedRepeats = remember(cards) { cards.filter { it.repeatType != RepeatType.NONE && it.repeatCompletionCount > 0 } }
                     val hasRegular = completedCards.isNotEmpty()
                     val hasRepeats = completedRepeats.isNotEmpty()
 
@@ -449,7 +451,7 @@ private fun ActiveCardRow(
     onDelete: () -> Unit,
     onToggleChecklistItem: (String) -> Unit = {}
 ) {
-    val timeInfo = getTimeWindowInfo(card.taskSetTimeStart, card.taskSetTimeEnd)
+    val timeInfo = remember(card) { getTimeWindowInfo(card.taskSetTimeStart, card.taskSetTimeEnd) }
 
     val overdueText: String? = overdueInfo?.let { info ->
         when (info.type) {
