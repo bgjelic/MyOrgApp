@@ -37,6 +37,13 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
     private val _showYesterdayDialog = MutableStateFlow(false)
     val showYesterdayDialog: StateFlow<Boolean> = _showYesterdayDialog
 
+    private val _toastMessage = MutableStateFlow<String?>(null)
+    val toastMessage: StateFlow<String?> = _toastMessage
+
+    fun clearToast() {
+        _toastMessage.value = null
+    }
+
     private var nextId = 0L
 
     init {
@@ -109,6 +116,10 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
     fun toggleFinished(card: CardItem) {
         val original = _cards.value.find { it.id == card.id }
         if (original != null) {
+            if (!original.finished && original.checklist.any { !it.checked }) {
+                _toastMessage.value = "Complete all checklist items first"
+                return
+            }
             if (original.finished) {
                 val newCount = if (original.repeatType != RepeatType.NONE && original.repeatCompletionCount > 0)
                     original.repeatCompletionCount - 1 else original.repeatCompletionCount

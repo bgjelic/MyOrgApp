@@ -36,12 +36,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -141,7 +144,17 @@ fun MainScreen(
     val noActiveCardsLabel = stringResource(R.string.no_active_cards)
     val noCompletedCardsLabel = stringResource(R.string.no_completed_cards)
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val toastMessage by viewModel.toastMessage.collectAsState()
+    LaunchedEffect(toastMessage) {
+        if (toastMessage != null) {
+            snackbarHostState.showSnackbar(toastMessage!!)
+            viewModel.clearToast()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(tasksLabel) },
@@ -430,6 +443,16 @@ private fun ActiveCardRow(
                         color = if (overdueText != null) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurface
                     )
+                    if (card.checklist.isNotEmpty()) {
+                        Spacer(Modifier.width(6.dp))
+                        val checked = card.checklist.count { it.checked }
+                        val total = card.checklist.size
+                        Text(
+                            text = "($checked/$total)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = card.description, style = MaterialTheme.typography.bodyMedium)
