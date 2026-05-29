@@ -1,6 +1,9 @@
 package com.example.myorgapp
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.ui.draw.clip
 import java.util.Calendar
 import java.util.UUID
 import androidx.compose.foundation.rememberScrollState
@@ -103,6 +109,12 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     var checklistItems by remember { mutableStateOf(editing?.checklist ?: emptyList()) }
     var newChecklistText by remember { mutableStateOf("") }
 
+    val tags by viewModel.tags.collectAsState()
+    var cardTagIds by remember { mutableStateOf(editing?.tagIds ?: emptyList()) }
+    var showCreateTagDialog by remember { mutableStateOf(false) }
+    var newTagName by remember { mutableStateOf("") }
+    var newTagColorIndex by remember { mutableStateOf(0) }
+
     val nameLabel = stringResource(R.string.name)
     val nameRequiredLabel = stringResource(R.string.name_required)
     val descLabel = stringResource(R.string.description)
@@ -168,6 +180,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
         repeatSkipDates = editing?.repeatSkipDates ?: ""
         checklistItems = editing?.checklist ?: emptyList()
         newChecklistText = ""
+        cardTagIds = editing?.tagIds ?: emptyList()
     }
 
     Scaffold(
@@ -223,6 +236,60 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 ),
                 maxLines = 5
             )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Tags:",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(Modifier.height(4.dp))
+            if (tags.isEmpty()) {
+                Text(
+                    "No tags yet",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    tags.take(5).forEach { tag ->
+                        val selected = tag.id in cardTagIds
+                        FilterChip(
+                            selected = selected,
+                            onClick = {
+                                cardTagIds = if (selected) cardTagIds - tag.id
+                                else cardTagIds + tag.id
+                            },
+                            label = { Text(tag.name) },
+                            leadingIcon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(tagPalette[tag.colorIndex % tagPalette.size])
+                                )
+                            }
+                        )
+                    }
+                    if (tags.size > 5) {
+                        Text(
+                            "+${tags.size - 5}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.align(Alignment.CenterVertically)
+                        )
+                    }
+                }
+            }
+            TextButton(onClick = {
+                newTagName = ""
+                newTagColorIndex = 0
+                showCreateTagDialog = true
+            }) {
+                Text("+ Create tag", style = MaterialTheme.typography.bodySmall)
+            }
+
             Spacer(Modifier.height(12.dp))
             Text(
                 "$taskStartLabel:",
@@ -372,7 +439,8 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                             repeatDaysOfWeek = repeatDaysOfWeek,
                             repeatEndDate = repeatEndDate.ifBlank { null },
                             repeatSkipDates = repeatSkipDates.ifBlank { null },
-                            checklist = checklistItems
+                            checklist = checklistItems,
+                            tagIds = cardTagIds
                         )
                     } else {
                         val current = editing!!
@@ -387,7 +455,8 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                             repeatDaysOfWeek = repeatDaysOfWeek,
                             repeatEndDate = repeatEndDate.ifBlank { null },
                             repeatSkipDates = repeatSkipDates.ifBlank { null },
-                            checklist = checklistItems
+                            checklist = checklistItems,
+                            tagIds = cardTagIds
                         )
                         viewModel.updateCard(updated)
                     }
@@ -410,6 +479,55 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (showCreateTagDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreateTagDialog = false },
+            title = { Text("Create Tag") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = newTagName,
+                        onValueChange = { newTagName = it },
+                        label = { Text("Tag name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text("Color:", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        tagPalette.forEachIndexed { index, color ->
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                                    .clickable { newTagColorIndex = index },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (newTagColorIndex == index) {
+                                    Text("✓", color = androidx.compose.ui.graphics.Color.White, fontSize = MaterialTheme.typography.bodySmall.fontSize)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (newTagName.isNotBlank()) {
+                        val id = viewModel.addTag(newTagName.trim(), newTagColorIndex)
+                        cardTagIds = cardTagIds + id
+                        showCreateTagDialog = false
+                    }
+                }) { Text("Create") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateTagDialog = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
     }
 
     if (showStartDatePicker) {

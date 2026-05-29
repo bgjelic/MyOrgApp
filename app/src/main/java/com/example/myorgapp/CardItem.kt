@@ -16,5 +16,6 @@ data class CardItem(
     val repeatEndDate: String? = null,
     val repeatSkipDates: String? = null,
     val repeatCompletionCount: Int = 0,
-    val checklist: List<ChecklistItem> = emptyList()
+    val checklist: List<ChecklistItem> = emptyList(),
+    val tagIds: List<String> = emptyList()
 )

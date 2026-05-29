@@ -1,7 +1,9 @@
 package com.example.myorgapp
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,7 +15,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,6 +36,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,6 +59,7 @@ import com.example.myorgapp.RepeatType
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
@@ -136,7 +143,14 @@ fun MainScreen(
 ) {
     val cards by viewModel.cards.collectAsState()
     val completedCards by viewModel.completedCards.collectAsState()
+    val tags by viewModel.tags.collectAsState()
+    val tagFilter by viewModel.activeTagFilter.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
+
+    val filteredCards = remember(cards, tagFilter) {
+        if (tagFilter == null) cards
+        else cards.filter { it.tagIds.contains(tagFilter) }
+    }
 
     val tasksLabel = stringResource(R.string.tasks)
     val activeLabel = stringResource(R.string.active)
@@ -203,7 +217,7 @@ fun MainScreen(
                     val todayCards = viewModel.getCardsForDate(today)
                     val totalToday = todayCards.size
                     val completedToday = todayCards.count { it.finished }
-                    val sortedCards = cards.sortedWith(compareBy<CardItem> { card ->
+                    val sortedCards = filteredCards.sortedWith(compareBy<CardItem> { card ->
                         when {
                             card.finished -> 4L
                             card.taskSetTimeStart == null -> 3L
@@ -213,7 +227,37 @@ fun MainScreen(
                         }
                     }.thenBy { it.taskSetTimeStart })
 
-                    if (cards.isEmpty()) {
+                    if (tags.isNotEmpty()) {
+                        LazyRow(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            item {
+                                FilterChip(
+                                    selected = tagFilter == null,
+                                    onClick = { viewModel.setTagFilter(null) },
+                                    label = { Text("All") }
+                                )
+                            }
+                            items(tags) { tag ->
+                                FilterChip(
+                                    selected = tagFilter == tag.id,
+                                    onClick = { viewModel.setTagFilter(tag.id) },
+                                    label = { Text(tag.name) },
+                                    leadingIcon = {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(tagPalette[tag.colorIndex % tagPalette.size])
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    if (filteredCards.isEmpty()) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -253,6 +297,7 @@ fun MainScreen(
                                 val overdueInfo = getOverdueInfo(card)
                                 ActiveCardRow(
                                     card = card,
+                                    tags = tags,
                                     overdueInfo = overdueInfo,
                                     onClick = { onEdit(card) },
                                     onToggleFinished = { onToggleFinished(card) },
@@ -369,6 +414,7 @@ fun MainScreen(
 @Composable
 private fun ActiveCardRow(
     card: CardItem,
+    tags: List<CardTag> = emptyList(),
     overdueInfo: OverdueInfo?,
     onClick: () -> Unit,
     onToggleFinished: () -> Unit,
@@ -452,6 +498,22 @@ private fun ActiveCardRow(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    card.tagIds.forEach { tagId ->
+                        val tag = tags.find { it.id == tagId } ?: return@forEach
+                        Spacer(Modifier.width(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(tagPalette[tag.colorIndex % tagPalette.size].copy(alpha = 0.2f))
+                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = tag.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = tagPalette[tag.colorIndex % tagPalette.size]
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))

@@ -40,6 +40,12 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage
 
+    private val _tags = MutableStateFlow<List<CardTag>>(emptyList())
+    val tags: StateFlow<List<CardTag>> = _tags
+
+    private val _activeTagFilter = MutableStateFlow<String?>(null)
+    val activeTagFilter: StateFlow<String?> = _activeTagFilter
+
     fun clearToast() {
         _toastMessage.value = null
     }
@@ -48,6 +54,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
 
     init {
         loadSettings()
+        loadTags()
         val saved = loadFromPrefs()
         _cards.value = saved
         nextId = (saved.maxOfOrNull { it.id } ?: 0L) + 1L
@@ -74,7 +81,8 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         repeatDaysOfWeek: List<Int>? = null,
         repeatEndDate: String? = null,
         repeatSkipDates: String? = null,
-        checklist: List<ChecklistItem> = emptyList()
+        checklist: List<ChecklistItem> = emptyList(),
+        tagIds: List<String> = emptyList()
     ) {
         val card = CardItem(
             id = nextId++,
@@ -91,7 +99,8 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             repeatDaysOfWeek = repeatDaysOfWeek,
             repeatEndDate = repeatEndDate,
             repeatSkipDates = repeatSkipDates,
-            checklist = checklist
+            checklist = checklist,
+            tagIds = tagIds
         )
         _cards.update { it + card }
         scheduleReminder(card)
@@ -344,6 +353,51 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         persistAsync()
     }
 
+    fun setTagFilter(tagId: String?) {
+        _activeTagFilter.value = tagId
+    }
+
+    fun toggleCardTag(cardId: Long, tagId: String) {
+        _cards.update { list ->
+            list.map { card ->
+                if (card.id == cardId) {
+                    card.copy(tagIds = if (card.tagIds.contains(tagId)) {
+                        card.tagIds - tagId
+                    } else {
+                        card.tagIds + tagId
+                    })
+                } else card
+            }
+        }
+        persistAsync()
+    }
+
+    fun addTag(name: String, colorIndex: Int): String {
+        val id = UUID.randomUUID().toString()
+        _tags.update { it + CardTag(id = id, name = name.trim(), colorIndex = colorIndex) }
+        persistTags()
+        return id
+    }
+
+    fun deleteTag(tagId: String) {
+        _tags.update { it.filterNot { t -> t.id == tagId } }
+        _cards.update { list ->
+            list.map { card -> card.copy(tagIds = card.tagIds - tagId) }
+        }
+        if (_activeTagFilter.value == tagId) {
+            _activeTagFilter.value = null
+        }
+        persistAsync()
+        persistTags()
+    }
+
+    fun updateTag(tagId: String, name: String, colorIndex: Int) {
+        _tags.update { list ->
+            list.map { if (it.id == tagId) it.copy(name = name.trim(), colorIndex = colorIndex) else it }
+        }
+        persistTags()
+    }
+
     fun updateSettings(newSettings: Settings) {
         _settings.value = newSettings
         saveSettings()
@@ -514,6 +568,19 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             val arr = gson.fromJson(json, Array<String>::class.java)
             arr?.toList()
         } catch (_: Exception) { null }
+    }
+
+    private fun loadTags() {
+        val json = prefs.getString("tags_json", null) ?: return
+        try {
+            val type = object : TypeToken<List<CardTag>>() {}.type
+            val loaded: List<CardTag>? = gson.fromJson(json, type)
+            if (loaded != null) _tags.value = loaded
+        } catch (_: Exception) {}
+    }
+
+    private fun persistTags() {
+        prefs.edit().putString("tags_json", gson.toJson(_tags.value)).apply()
     }
 
     private fun loadFromPrefs(): List<CardItem> {

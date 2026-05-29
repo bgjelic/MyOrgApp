@@ -1,6 +1,9 @@
 package com.example.myorgapp
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,9 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -22,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -37,6 +43,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,6 +58,12 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
 
     var showTimePickerDialog by remember { mutableStateOf(false) }
     var showReminderTimePicker by remember { mutableStateOf(false) }
+
+    val tags by viewModel.tags.collectAsState()
+    var showTagDialog by remember { mutableStateOf(false) }
+    var editingTag by remember { mutableStateOf<CardTag?>(null) }
+    var tagDialogName by remember { mutableStateOf("") }
+    var tagDialogColorIndex by remember { mutableStateOf(0) }
 
     val settingsTitle = stringResource(R.string.settings_title)
     val appearanceLabel = stringResource(R.string.settings_appearance)
@@ -161,6 +175,68 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 )
             }
 
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Manage Tags",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                tags.forEach { tag ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .clip(CircleShape)
+                                    .background(tagPalette[tag.colorIndex % tagPalette.size])
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = tag.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        editingTag = tag
+                                        tagDialogName = tag.name
+                                        tagDialogColorIndex = tag.colorIndex
+                                        showTagDialog = true
+                                    }
+                            )
+                            IconButton(onClick = { viewModel.deleteTag(tag.id) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete tag"
+                                )
+                            }
+                        }
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        editingTag = null
+                        tagDialogName = ""
+                        tagDialogColorIndex = 0
+                        showTagDialog = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Add Tag")
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
         }
     }
@@ -217,6 +293,69 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (showTagDialog) {
+        AlertDialog(
+            onDismissRequest = { showTagDialog = false },
+            title = { Text(if (editingTag != null) "Edit Tag" else "Create Tag") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = tagDialogName,
+                        onValueChange = { tagDialogName = it },
+                        label = { Text("Tag name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text("Color", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        tagPalette.forEachIndexed { index, color ->
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                                    .clickable { tagDialogColorIndex = index },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (tagDialogColorIndex == index) {
+                                    Text(
+                                        text = "✓",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (tagDialogName.isNotBlank()) {
+                            if (editingTag != null) {
+                                viewModel.updateTag(editingTag!!.id, tagDialogName.trim(), tagDialogColorIndex)
+                            } else {
+                                viewModel.addTag(tagDialogName.trim(), tagDialogColorIndex)
+                            }
+                        }
+                        showTagDialog = false
+                    }
+                ) {
+                    Text(okLabel)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTagDialog = false }) {
+                    Text(cancelLabel)
+                }
+            }
+        )
     }
 
     if (showReminderTimePicker) {
