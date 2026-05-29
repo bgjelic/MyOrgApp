@@ -17,7 +17,7 @@ A local-first personal organizer app for Android. No accounts, no cloud, no trac
 
 ## Installation
 
-1. Go to the [Releases page](https://github.com/YOUR_USERNAME/MyOrgApp/releases)
+1. Go to the [Releases page](https://github.com/bgjelic/MyOrgApp/releases)
 2. Tap the `.apk` file to download it
 3. Open the downloaded file and tap "Install" (you may need to enable "Install from unknown sources" in Settings)
 
