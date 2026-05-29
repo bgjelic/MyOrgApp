@@ -1,18 +1,18 @@
 package com.example.myorgapp
 
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.ExperimentalFoundationApi
 
 @Composable
 fun WeekView(
@@ -112,7 +112,6 @@ private fun WeekDayColumn(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun WeekTaskCard(
     task: CardItem,
@@ -128,39 +127,38 @@ private fun WeekTaskCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = onEdit,
-                onDoubleClick = onToggleFinished
-            ),
+            .clickable { onEdit() },
         colors = if (task.finished) {
             CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         } else {
             CardDefaults.cardColors()
         }
     ) {
-        Column(modifier = Modifier.padding(6.dp)) {
-            if (timeStr != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onToggleFinished, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    imageVector = if (task.finished) Icons.Default.CheckCircle else Icons.Default.CheckBoxOutlineBlank,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = if (task.finished) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Column(modifier = Modifier.padding(start = 2.dp)) {
+                if (timeStr != null) {
                     Text(
                         text = timeStr,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (task.finished) {
-                        Spacer(Modifier.width(2.dp))
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(12.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
                 }
+                Text(
+                    text = task.name,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
-            Text(
-                text = task.name,
-                style = MaterialTheme.typography.bodySmall
-            )
         }
     }
 }

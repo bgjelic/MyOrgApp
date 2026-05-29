@@ -10,11 +10,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import java.util.Calendar
+import java.util.UUID
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -29,7 +32,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -76,14 +78,11 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     var name by remember { mutableStateOf(editing?.name ?: "") }
     var description by remember { mutableStateOf(editing?.description ?: "") }
     var nameHasError by remember { mutableStateOf(false) }
-    var finished by remember { mutableStateOf(editing?.finished ?: false) }
-    var dateCompleted by remember { mutableStateOf(editing?.dateCompleted ?: "") }
     var taskSetTimeStart by remember { mutableStateOf(editing?.taskSetTimeStart ?: "") }
     var taskSetTimeEnd by remember { mutableStateOf(editing?.taskSetTimeEnd ?: "") }
     var reminderMinutesBefore by remember { mutableStateOf(editing?.reminderMinutesBefore) }
     var reminderCustomTime by remember { mutableStateOf(editing?.reminderCustomTime) }
 
-    var showDateCompletedPicker by remember { mutableStateOf(false) }
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
@@ -101,11 +100,12 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     var showRepeatPicker by remember { mutableStateOf(false) }
     var showCustomRepeatDialog by remember { mutableStateOf(false) }
 
+    var checklistItems by remember { mutableStateOf(editing?.checklist ?: emptyList()) }
+    var newChecklistText by remember { mutableStateOf("") }
+
     val nameLabel = stringResource(R.string.name)
     val nameRequiredLabel = stringResource(R.string.name_required)
     val descLabel = stringResource(R.string.description)
-    val finishedLabel = stringResource(R.string.finished)
-    val completedLabel = stringResource(R.string.completed)
     val pickDateLabel = stringResource(R.string.pick_date)
     val taskStartLabel = stringResource(R.string.task_start)
     val taskEndLabel = stringResource(R.string.task_end)
@@ -158,8 +158,6 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     LaunchedEffect(editing?.id) {
         name = editing?.name ?: ""
         description = editing?.description ?: ""
-        finished = editing?.finished ?: false
-        dateCompleted = editing?.dateCompleted ?: ""
         taskSetTimeStart = editing?.taskSetTimeStart ?: ""
         taskSetTimeEnd = editing?.taskSetTimeEnd ?: ""
         reminderMinutesBefore = editing?.reminderMinutesBefore
@@ -168,6 +166,8 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
         repeatDaysOfWeek = editing?.repeatDaysOfWeek
         repeatEndDate = editing?.repeatEndDate ?: ""
         repeatSkipDates = editing?.repeatSkipDates ?: ""
+        checklistItems = editing?.checklist ?: emptyList()
+        newChecklistText = ""
     }
 
     Scaffold(
@@ -223,38 +223,6 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 ),
                 maxLines = 5
             )
-            Spacer(Modifier.height(12.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    finishedLabel,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Spacer(Modifier.width(8.dp))
-                Switch(checked = finished, onCheckedChange = {
-                    finished = it
-                    if (it && dateCompleted.isBlank()) {
-                        dateCompleted = DateHelper.todayDate()
-                    } else if (!it) {
-                        dateCompleted = ""
-                    }
-                })
-            }
-
-            if (finished) {
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "$completedLabel:",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedButton(onClick = { showDateCompletedPicker = true }) {
-                        Text(dateCompleted.ifBlank { pickDateLabel })
-                    }
-                }
-            }
-
             Spacer(Modifier.height(12.dp))
             Text(
                 "$taskStartLabel:",
@@ -335,6 +303,56 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 Text(text)
             }
 
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Checklist:",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(Modifier.height(4.dp))
+            checklistItems.forEach { item ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = item.checked,
+                        onCheckedChange = {
+                            checklistItems = checklistItems.map { i ->
+                                if (i.id == item.id) i.copy(checked = !i.checked) else i
+                            }
+                        }
+                    )
+                    Text(
+                        text = item.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = {
+                        checklistItems = checklistItems.filterNot { it.id == item.id }
+                    }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Remove item")
+                    }
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = newChecklistText,
+                    onValueChange = { newChecklistText = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("New item") },
+                    singleLine = true
+                )
+                Spacer(Modifier.width(4.dp))
+                IconButton(onClick = {
+                    if (newChecklistText.isNotBlank()) {
+                        checklistItems = checklistItems + ChecklistItem(
+                            id = UUID.randomUUID().toString(),
+                            text = newChecklistText.trim()
+                        )
+                        newChecklistText = ""
+                    }
+                }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add item")
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
             Row {
                 Button(onClick = {
@@ -346,8 +364,6 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                         viewModel.addCard(
                             name = name.trim(),
                             description = description.trim(),
-                            dateCompleted = dateCompleted.ifBlank { null },
-                            finished = finished,
                             taskSetTimeStart = taskSetTimeStart.ifBlank { null },
                             taskSetTimeEnd = taskSetTimeEnd.ifBlank { null },
                             reminderMinutesBefore = reminderMinutesBefore,
@@ -355,15 +371,14 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                             repeatType = repeatType,
                             repeatDaysOfWeek = repeatDaysOfWeek,
                             repeatEndDate = repeatEndDate.ifBlank { null },
-                            repeatSkipDates = repeatSkipDates.ifBlank { null }
+                            repeatSkipDates = repeatSkipDates.ifBlank { null },
+                            checklist = checklistItems
                         )
                     } else {
                         val current = editing!!
                         val updated = current.copy(
                             name = name.trim(),
                             description = description.trim(),
-                            dateCompleted = dateCompleted.ifBlank { null },
-                            finished = finished,
                             taskSetTimeStart = taskSetTimeStart.ifBlank { null },
                             taskSetTimeEnd = taskSetTimeEnd.ifBlank { null },
                             reminderMinutesBefore = reminderMinutesBefore,
@@ -371,7 +386,8 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                             repeatType = repeatType,
                             repeatDaysOfWeek = repeatDaysOfWeek,
                             repeatEndDate = repeatEndDate.ifBlank { null },
-                            repeatSkipDates = repeatSkipDates.ifBlank { null }
+                            repeatSkipDates = repeatSkipDates.ifBlank { null },
+                            checklist = checklistItems
                         )
                         viewModel.updateCard(updated)
                     }
@@ -393,28 +409,6 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                     }
                 }
             }
-        }
-    }
-
-    if (showDateCompletedPicker) {
-        val state = rememberDatePickerState(parseDateToMillis(dateCompleted))
-        DatePickerDialog(
-            onDismissRequest = { showDateCompletedPicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    state.selectedDateMillis?.let { millis ->
-                        dateCompleted = DateHelper.millisToDate(millis)
-                    }
-                    showDateCompletedPicker = false
-                }) { Text(okLabel) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDateCompletedPicker = false }) {
-                    Text(cancelLabel)
-                }
-            }
-        ) {
-            DatePicker(state = state)
         }
     }
 

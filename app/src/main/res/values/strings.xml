@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">MyOrgApp</string>
-    <string name="title_activity_main">MainActivity</string>
+    <string name="app_name">MO</string>
+    <string name="title_activity_main">MO</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
@@ -100,4 +100,8 @@
 
     <string name="settings_default_reminder_time">Default reminder time</string>
     <string name="settings_select_reminder_time">Select Reminder Time</string>
+
+    <string name="checklist">Checklist</string>
+    <string name="checklist_new_item">New item</string>
+    <string name="checklist_empty">No items</string>
 </resources>

@@ -1,7 +1,7 @@
 package com.example.myorgapp
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,15 +14,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -32,6 +39,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -179,6 +187,9 @@ fun MainScreen(
             when (selectedTab) {
                 0 -> {
                     val today = DateHelper.todayDate()
+                    val todayCards = viewModel.getCardsForDate(today)
+                    val totalToday = todayCards.size
+                    val completedToday = todayCards.count { it.finished }
                     val sortedCards = cards.sortedWith(compareBy<CardItem> { card ->
                         when {
                             card.finished -> 4L
@@ -202,6 +213,29 @@ fun MainScreen(
                                 .fillMaxSize()
                                 .padding(8.dp)
                         ) {
+                            if (totalToday > 0) {
+                                item {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = "Today: $completedToday/$totalToday done",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
                             items(sortedCards) { card ->
                                 val overdueInfo = getOverdueInfo(card)
                                 ActiveCardRow(
@@ -209,14 +243,19 @@ fun MainScreen(
                                     overdueInfo = overdueInfo,
                                     onClick = { onEdit(card) },
                                     onToggleFinished = { onToggleFinished(card) },
-                                    onDelete = { onDelete(card.id) }
+                                    onDelete = { onDelete(card.id) },
+                                    onToggleChecklistItem = { itemId -> viewModel.toggleChecklistItem(card.id, itemId) }
                                 )
                             }
                         }
                     }
                 }
-                1 -> {
-                    if (completedCards.isEmpty()) {
+                 1 -> {
+                    val completedRepeats = cards.filter { it.repeatType != RepeatType.NONE && it.repeatCompletionCount > 0 }
+                    val hasRegular = completedCards.isNotEmpty()
+                    val hasRepeats = completedRepeats.isNotEmpty()
+
+                    if (!hasRegular && !hasRepeats) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -229,11 +268,42 @@ fun MainScreen(
                                 .fillMaxSize()
                                 .padding(8.dp)
                         ) {
-                            items(completedCards) { card ->
-                                CompletedCardRow(
-                                    card = card,
-                                    onDelete = { onDeleteCompleted(card.id) }
-                                )
+                            if (hasRegular) {
+                                item {
+                                    Text(
+                                        text = stringResource(R.string.completed_tab),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                                    )
+                                    Text(
+                                        text = "(click to restore)",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    )
+                                }
+                                items(completedCards) { card ->
+                                    CompletedCardRow(
+                                        card = card,
+                                        onToggle = { onToggleFinished(card) },
+                                        onDelete = { onDeleteCompleted(card.id) }
+                                    )
+                                }
+                            }
+                            if (hasRepeats) {
+                                item {
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = "Completed Repeats",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                                    )
+                                }
+                                items(completedRepeats) { card ->
+                                    CompletedRepeatRow(card = card)
+                                }
                             }
                         }
                     }
@@ -241,16 +311,56 @@ fun MainScreen(
             }
         }
     }
+
+    val showYesterdayDialog by viewModel.showYesterdayDialog.collectAsState()
+    val yesterdayCards by viewModel.yesterdayUncompleted.collectAsState()
+
+    if (showYesterdayDialog && yesterdayCards.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissYesterdayDialog() },
+            title = {
+                Text("Did you forget to check off any of these?")
+            },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    yesterdayCards.forEach { card ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.checkYesterdayCard(card) }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Checkbox(
+                                checked = false,
+                                onCheckedChange = { viewModel.checkYesterdayCard(card) }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = card.name,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissYesterdayDialog() }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ActiveCardRow(
     card: CardItem,
     overdueInfo: OverdueInfo?,
     onClick: () -> Unit,
     onToggleFinished: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onToggleChecklistItem: (String) -> Unit = {}
 ) {
     val timeInfo = getTimeWindowInfo(card.taskSetTimeStart, card.taskSetTimeEnd)
 
@@ -277,24 +387,30 @@ private fun ActiveCardRow(
         "$dayLabel  ${info.timePart}"
     }
 
+    val checkExpanded = remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(4.dp)
-            .combinedClickable(
-                onClick = onClick,
-                onDoubleClick = onToggleFinished
-            ),
-        colors = if (overdueText != null) {
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-        } else {
-            CardDefaults.cardColors()
+            .clickable { onClick() },
+        colors = when {
+            card.finished -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            overdueText != null -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            else -> CardDefaults.cardColors()
         }
     ) {
         Row(
-            modifier = Modifier.padding(start = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(start = 4.dp),
+            verticalAlignment = Alignment.Top
         ) {
+            IconButton(onClick = onToggleFinished) {
+                Icon(
+                    imageVector = if (card.finished) Icons.Default.CheckCircle else Icons.Default.CheckBoxOutlineBlank,
+                    contentDescription = stringResource(R.string.content_desc_finished),
+                    tint = if (card.finished) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -314,20 +430,11 @@ private fun ActiveCardRow(
                         color = if (overdueText != null) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurface
                     )
-                    if (card.finished) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = stringResource(R.string.content_desc_finished),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = card.description, style = MaterialTheme.typography.bodyMedium)
                 val hasReminder = card.reminderMinutesBefore != null || card.reminderCustomTime != null
-                if (timeWindowText != null || hasReminder || card.repeatType != RepeatType.NONE) {
+                if (timeWindowText != null || hasReminder || card.repeatType != RepeatType.NONE || card.checklist.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (hasReminder) {
@@ -346,6 +453,21 @@ private fun ActiveCardRow(
                                 modifier = Modifier.size(14.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (card.repeatCompletionCount > 0) {
+                                val unit = when (card.repeatType) {
+                                    RepeatType.DAILY, RepeatType.WEEKDAYS, RepeatType.WEEKENDS, RepeatType.CUSTOM -> "days"
+                                    RepeatType.WEEKLY -> "weeks"
+                                    RepeatType.MONTHLY -> "months"
+                                    RepeatType.YEARLY -> "years"
+                                    else -> ""
+                                }
+                                Text(
+                                    text = "×${card.repeatCompletionCount} $unit",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.width(4.dp))
+                            }
                             Spacer(Modifier.width(4.dp))
                         }
                         if (timeWindowText != null) {
@@ -354,6 +476,43 @@ private fun ActiveCardRow(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                        if (card.checklist.isNotEmpty()) {
+                            Spacer(Modifier.width(4.dp))
+                            IconButton(
+                                onClick = { checkExpanded.value = !checkExpanded.value },
+                                modifier = Modifier.size(18.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (checkExpanded.value) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+                AnimatedVisibility(visible = checkExpanded.value) {
+                    Column(modifier = Modifier.padding(start = 8.dp, top = 4.dp)) {
+                        card.checklist.forEach { item ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 2.dp)
+                            ) {
+                                Checkbox(
+                                    checked = item.checked,
+                                    onCheckedChange = { onToggleChecklistItem(item.id) },
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = item.text,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
                 }
@@ -371,12 +530,14 @@ private fun ActiveCardRow(
 @Composable
 private fun CompletedCardRow(
     card: CardItem,
+    onToggle: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(4.dp)
+            .clickable { onToggle() },
     ) {
         Row(
             modifier = Modifier.padding(start = 12.dp),
@@ -411,6 +572,49 @@ private fun CompletedCardRow(
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = stringResource(R.string.content_desc_delete)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompletedRepeatRow(card: CardItem) {
+    val unit = when (card.repeatType) {
+        RepeatType.DAILY, RepeatType.WEEKDAYS, RepeatType.WEEKENDS, RepeatType.CUSTOM -> "days"
+        RepeatType.WEEKLY -> "weeks"
+        RepeatType.MONTHLY -> "months"
+        RepeatType.YEARLY -> "years"
+        else -> ""
+    }
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Repeat,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(end = 12.dp)
+                    .size(24.dp)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 12.dp)
+            ) {
+                Text(text = card.name, style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "×${card.repeatCompletionCount} $unit",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

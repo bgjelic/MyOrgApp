@@ -9,6 +9,7 @@ import android.os.Build
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import java.util.Calendar
+import java.util.UUID
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,12 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
     private val _settings = MutableStateFlow(Settings())
     val settings: StateFlow<Settings> = _settings
 
+    private val _yesterdayUncompleted = MutableStateFlow<List<CardItem>>(emptyList())
+    val yesterdayUncompleted: StateFlow<List<CardItem>> = _yesterdayUncompleted
+
+    private val _showYesterdayDialog = MutableStateFlow(false)
+    val showYesterdayDialog: StateFlow<Boolean> = _showYesterdayDialog
+
     private var nextId = 0L
 
     init {
@@ -39,6 +46,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         nextId = (saved.maxOfOrNull { it.id } ?: 0L) + 1L
         _completedCards.value = loadCompletedFromPrefs()
         runDailyScanIfNeeded()
+        checkYesterdayUncompleted()
     }
 
     fun setEditing(card: CardItem?) {
@@ -58,7 +66,8 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         repeatType: RepeatType = RepeatType.NONE,
         repeatDaysOfWeek: List<Int>? = null,
         repeatEndDate: String? = null,
-        repeatSkipDates: String? = null
+        repeatSkipDates: String? = null,
+        checklist: List<ChecklistItem> = emptyList()
     ) {
         val card = CardItem(
             id = nextId++,
@@ -74,7 +83,8 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             repeatType = repeatType,
             repeatDaysOfWeek = repeatDaysOfWeek,
             repeatEndDate = repeatEndDate,
-            repeatSkipDates = repeatSkipDates
+            repeatSkipDates = repeatSkipDates,
+            checklist = checklist
         )
         _cards.update { it + card }
         scheduleReminder(card)
@@ -97,31 +107,42 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun toggleFinished(card: CardItem) {
-        val original = _cards.value.find { it.id == card.id } ?: return
-        if (original.finished) {
-            updateCard(original.copy(finished = false, dateCompleted = null))
-        } else {
-            if (original.repeatType != RepeatType.NONE) {
-                val nextDate = DateHelper.computeNextDate(
-                    currentDate = original.dateCreated ?: DateHelper.todayDate(),
-                    repeatType = original.repeatType,
-                    daysOfWeek = original.repeatDaysOfWeek,
-                    skipDates = parseSkipDates(original.repeatSkipDates),
-                    endDate = original.repeatEndDate
-                )
-                if (nextDate != null) {
+        val original = _cards.value.find { it.id == card.id }
+        if (original != null) {
+            if (original.finished) {
+                val newCount = if (original.repeatType != RepeatType.NONE && original.repeatCompletionCount > 0)
+                    original.repeatCompletionCount - 1 else original.repeatCompletionCount
+                updateCard(original.copy(
+                    finished = false,
+                    dateCompleted = null,
+                    repeatCompletionCount = newCount
+                ))
+            } else {
+                val today = DateHelper.todayDate()
+                if (original.repeatType != RepeatType.NONE) {
                     updateCard(original.copy(
-                        dateCreated = nextDate,
-                        finished = false,
-                        dateCompleted = null
+                        finished = true,
+                        dateCompleted = today,
+                        repeatCompletionCount = original.repeatCompletionCount + 1
                     ))
                 } else {
-                    updateCard(original.copy(finished = true, dateCompleted = DateHelper.todayDate()))
+                    val completed = original.copy(finished = true, dateCompleted = today)
+                    cancelReminder(original)
+                    _cards.update { list -> list.filterNot { it.id == original.id } }
+                    _completedCards.update { list -> list + completed }
+                    persistAsync()
+                    persistCompletedAsync()
                 }
-            } else {
-                updateCard(original.copy(finished = true, dateCompleted = DateHelper.todayDate()))
             }
+            return
         }
+
+        val completed = _completedCards.value.find { it.id == card.id } ?: return
+        val restored = completed.copy(finished = false, dateCompleted = null)
+        _completedCards.update { list -> list.filterNot { it.id == completed.id } }
+        _cards.update { list -> list + restored }
+        persistAsync()
+        persistCompletedAsync()
     }
 
     fun getCardsForDate(dateStr: String): List<CardItem> {
@@ -135,7 +156,8 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                 } catch (_: Exception) { false }
             } ?: false
             if (timeMatch) {
-                result.add(card)
+                val isFinished = card.finished && card.dateCompleted == dateStr
+                result.add(card.copy(finished = isFinished, dateCompleted = if (isFinished) dateStr else null))
                 continue
             }
             if (card.repeatType == RepeatType.NONE) continue
@@ -149,11 +171,12 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                     skipDates = parseSkipDates(card.repeatSkipDates)
                 )
             ) {
+                val isFinished = card.finished && card.dateCompleted == dateStr
                 val time = card.taskSetTimeStart?.let { DateHelper.getTimePart(it) }
                 result.add(if (time != null) {
-                    card.copy(taskSetTimeStart = "$dateStr${'T'}$time")
+                    card.copy(taskSetTimeStart = "$dateStr${'T'}$time", finished = isFinished, dateCompleted = if (isFinished) dateStr else null)
                 } else {
-                    card.copy(taskSetTimeStart = dateStr)
+                    card.copy(taskSetTimeStart = dateStr, finished = isFinished, dateCompleted = if (isFinished) dateStr else null)
                 })
             }
         }
@@ -196,10 +219,11 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
 
             val time = card.taskSetTimeStart?.let { DateHelper.getTimePart(it) }
             for (date in datesInWeek.sorted()) {
+                val isFinished = card.finished && card.dateCompleted == date
                 result.add(if (time != null) {
-                    card.copy(taskSetTimeStart = "$date${'T'}$time")
+                    card.copy(taskSetTimeStart = "$date${'T'}$time", finished = isFinished, dateCompleted = if (isFinished) date else null)
                 } else {
-                    card.copy(taskSetTimeStart = date)
+                    card.copy(taskSetTimeStart = date, finished = isFinished, dateCompleted = if (isFinished) date else null)
                 })
             }
         }
@@ -242,10 +266,11 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
 
             val time = card.taskSetTimeStart?.let { DateHelper.getTimePart(it) }
             for (date in datesInMonth.sorted()) {
+                val isFinished = card.finished && card.dateCompleted == date
                 result.add(if (time != null) {
-                    card.copy(taskSetTimeStart = "$date${'T'}$time")
+                    card.copy(taskSetTimeStart = "$date${'T'}$time", finished = isFinished, dateCompleted = if (isFinished) date else null)
                 } else {
-                    card.copy(taskSetTimeStart = date)
+                    card.copy(taskSetTimeStart = date, finished = isFinished, dateCompleted = if (isFinished) date else null)
                 })
             }
         }
@@ -257,9 +282,88 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         persistCompletedAsync()
     }
 
+    fun addChecklistItem(cardId: Long, text: String) {
+        _cards.update { list ->
+            list.map { card ->
+                if (card.id == cardId) {
+                    val newItem = ChecklistItem(id = UUID.randomUUID().toString(), text = text.trim())
+                    card.copy(checklist = card.checklist + newItem)
+                } else card
+            }
+        }
+        persistAsync()
+    }
+
+    fun removeChecklistItem(cardId: Long, itemId: String) {
+        _cards.update { list ->
+            list.map { card ->
+                if (card.id == cardId) {
+                    card.copy(checklist = card.checklist.filterNot { it.id == itemId })
+                } else card
+            }
+        }
+        persistAsync()
+    }
+
+    fun toggleChecklistItem(cardId: Long, itemId: String) {
+        _cards.update { list ->
+            list.map { card ->
+                if (card.id == cardId) {
+                    card.copy(checklist = card.checklist.map { item ->
+                        if (item.id == itemId) item.copy(checked = !item.checked)
+                        else item
+                    })
+                } else card
+            }
+        }
+        persistAsync()
+    }
+
+    fun updateChecklistItemText(cardId: Long, itemId: String, text: String) {
+        _cards.update { list ->
+            list.map { card ->
+                if (card.id == cardId) {
+                    card.copy(checklist = card.checklist.map { item ->
+                        if (item.id == itemId) item.copy(text = text.trim())
+                        else item
+                    })
+                } else card
+            }
+        }
+        persistAsync()
+    }
+
     fun updateSettings(newSettings: Settings) {
         _settings.value = newSettings
         saveSettings()
+    }
+
+    fun checkYesterdayUncompleted() {
+        val todayDate = DateHelper.todayDate()
+        val lastShown = prefs.getString("yesterday_dialog_shown_date", null)
+        if (lastShown == todayDate) return
+
+        val yesterdayDate = DateHelper.addDays(todayDate, -1)
+        val uncompleted = _cards.value.filter { card ->
+            !card.finished && card.taskSetTimeStart?.startsWith(yesterdayDate) == true
+        }
+        if (uncompleted.isNotEmpty()) {
+            _yesterdayUncompleted.value = uncompleted
+            _showYesterdayDialog.value = true
+        }
+    }
+
+    fun dismissYesterdayDialog() {
+        _showYesterdayDialog.value = false
+        prefs.edit().putString("yesterday_dialog_shown_date", DateHelper.todayDate()).apply()
+    }
+
+    fun checkYesterdayCard(card: CardItem) {
+        toggleFinished(card)
+        _yesterdayUncompleted.value = _yesterdayUncompleted.value.filterNot { it.id == card.id }
+        if (_yesterdayUncompleted.value.isEmpty()) {
+            dismissYesterdayDialog()
+        }
     }
 
     private fun computeTriggerTime(card: CardItem): Long? {
@@ -368,14 +472,25 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         )
 
         if (lastScan != todayDate && !nowCal.before(dayStartTodayCal)) {
-            val yesterday = DateHelper.addDays(todayDate, -1)
-            val (toMove, remaining) = _cards.value.partition {
-                it.finished && it.dateCompleted == yesterday
+            val renewed = mutableListOf<CardItem>()
+            val remaining = mutableListOf<CardItem>()
+
+            for (card in _cards.value) {
+                if (card.repeatType != RepeatType.NONE && card.finished && card.dateCompleted != null && card.dateCompleted < todayDate) {
+                    val renewedCard = card.copy(
+                        finished = false,
+                        dateCompleted = null,
+                        checklist = emptyList()
+                    )
+                    renewed.add(renewedCard)
+                    scheduleReminder(renewedCard)
+                } else {
+                    remaining.add(card)
+                }
             }
-            if (toMove.isNotEmpty()) {
-                _cards.value = remaining
-                _completedCards.update { it + toMove }
-                persistCompletedAsync()
+
+            if (renewed.isNotEmpty()) {
+                _cards.value = remaining + renewed
                 persistAsync()
             }
             prefs.edit().putString("last_scan_date", todayDate).apply()

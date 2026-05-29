@@ -1,10 +1,11 @@
 package com.example.myorgapp
 
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.ExperimentalFoundationApi
 
 @Composable
 fun DayView(
@@ -36,7 +36,8 @@ fun DayView(
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp)
             )
             allDayTasks.forEach { task ->
-                AllDayTaskCard(task = task, onToggleFinished = { onToggleFinished(task)})      }
+                AllDayTaskCard(task = task, onToggleFinished = { onToggleFinished(task) }, onEdit = { onEditTask(task) })
+            }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
         }
 
@@ -90,7 +91,6 @@ fun DayView(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun HourTaskCard(
     task: CardItem,
@@ -101,10 +101,7 @@ private fun HourTaskCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = onEdit,
-                onDoubleClick = onToggleFinished
-            ),
+            .clickable { onEdit() },
         colors = if (task.finished) {
             CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         } else {
@@ -115,23 +112,19 @@ private fun HourTaskCard(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            IconButton(onClick = onToggleFinished) {
+                Icon(
+                    imageVector = if (task.finished) Icons.Default.CheckCircle else Icons.Default.CheckBoxOutlineBlank,
+                    contentDescription = null,
+                    tint = if (task.finished) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = timeRange,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (task.finished) {
-                        Spacer(Modifier.width(4.dp))
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
+                Text(
+                    text = timeRange,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Text(
                     text = task.name,
                     style = MaterialTheme.typography.bodyMedium
@@ -141,20 +134,17 @@ private fun HourTaskCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AllDayTaskCard(
     task: CardItem,
-    onToggleFinished: () -> Unit
+    onToggleFinished: () -> Unit,
+    onEdit: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 2.dp)
-            .combinedClickable(
-                onClick = {},
-                onDoubleClick = onToggleFinished
-            ),
+            .clickable { onEdit() },
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -163,19 +153,18 @@ private fun AllDayTaskCard(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            IconButton(onClick = onToggleFinished) {
+                Icon(
+                    imageVector = if (task.finished) Icons.Default.CheckCircle else Icons.Default.CheckBoxOutlineBlank,
+                    contentDescription = null,
+                    tint = if (task.finished) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Text(
                 text = task.name,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f)
             )
-            if (task.finished) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
         }
     }
 }

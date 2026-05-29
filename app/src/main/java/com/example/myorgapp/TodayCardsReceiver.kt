@@ -54,12 +54,14 @@ class TodayCardsReceiver : BroadcastReceiver() {
                     } catch (_: Exception) { mutableListOf() }
                 } else { mutableListOf() }
 
-                if (toggled.finished) {
-                    completedCards.add(toggled)
-                } else {
-                    completedCards.removeAll { it.id == toggled.id }
+                if (card.repeatType == RepeatType.NONE) {
+                    if (toggled.finished) {
+                        completedCards.add(toggled)
+                    } else {
+                        completedCards.removeAll { it.id == toggled.id }
+                    }
+                    prefs.edit().putString("completed_cards_json", gson.toJson(completedCards)).apply()
                 }
-                prefs.edit().putString("completed_cards_json", gson.toJson(completedCards)).apply()
 
                 val updatedToday = getTodayCards(updatedAllCards)
                 if (updatedToday.isEmpty()) {
