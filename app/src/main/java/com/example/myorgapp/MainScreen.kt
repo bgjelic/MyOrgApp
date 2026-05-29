@@ -24,12 +24,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -39,6 +41,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -146,10 +149,17 @@ fun MainScreen(
     val tags by viewModel.tags.collectAsState()
     val tagFilter by viewModel.activeTagFilter.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
+    var searchQuery by remember { mutableStateOf("") }
 
-    val filteredCards = remember(cards, tagFilter) {
-        if (tagFilter == null) cards
-        else cards.filter { it.tagIds.contains(tagFilter) }
+    val filteredCards = remember(cards, tagFilter, searchQuery) {
+        cards
+            .filter { card -> tagFilter == null || card.tagIds.contains(tagFilter) }
+            .filter { card ->
+                searchQuery.isBlank() ||
+                card.name.contains(searchQuery, ignoreCase = true) ||
+                card.description.contains(searchQuery, ignoreCase = true) ||
+                card.checklist.any { it.text.contains(searchQuery, ignoreCase = true) }
+            }
     }
 
     val tasksLabel = stringResource(R.string.tasks)
@@ -226,6 +236,24 @@ fun MainScreen(
                             else -> 2L
                         }
                     }.thenBy { it.taskSetTimeStart })
+
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        placeholder = { Text("Search cards...") },
+                        singleLine = true,
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                                }
+                            }
+                        }
+                    )
 
                     if (tags.isNotEmpty()) {
                         LazyRow(
