@@ -152,6 +152,55 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                         modifier = Modifier.weight(1f)
                     )
                 }
+
+                Spacer(Modifier.height(4.dp))
+
+                Text(
+                    text = "Color theme",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = settings.colorTheme == ColorTheme.BLUE,
+                        onClick = {
+                            viewModel.updateSettings(settings.copy(colorTheme = ColorTheme.BLUE))
+                        },
+                        label = { Text("Blue") },
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF1565C0))
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = settings.colorTheme == ColorTheme.PINK,
+                        onClick = {
+                            viewModel.updateSettings(settings.copy(colorTheme = ColorTheme.PINK))
+                        },
+                        label = { Text("Pink") },
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFD81B60))
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
         checkNotificationIntent(intent)
         setContent {
             val settings by viewModel.settings.collectAsState()
-            MyOrgAppTheme(themeMode = settings.themeMode) {
+            MyOrgAppTheme(themeMode = settings.themeMode, colorTheme = settings.colorTheme) {
                 val navController = rememberNavController()
 
                 val notificationPermissionLauncher = rememberLauncherForActivityResult(

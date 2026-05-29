@@ -614,7 +614,13 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         }
         val remHour = prefs.getInt("settings_default_reminder_hour", 9)
         val remMinute = prefs.getInt("settings_default_reminder_minute", 0)
-        _settings.value = Settings(hour, minute, themeMode, remHour, remMinute)
+        val colorThemeStr = prefs.getString("settings_color_theme", ColorTheme.BLUE.name)
+        val colorTheme = try {
+            ColorTheme.valueOf(colorThemeStr ?: ColorTheme.BLUE.name)
+        } catch (_: Exception) {
+            ColorTheme.BLUE
+        }
+        _settings.value = Settings(hour, minute, themeMode, colorTheme, remHour, remMinute)
     }
 
     private fun persistAsync() {
@@ -633,6 +639,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             .putInt("settings_day_starts_hour", s.dayStartsHour)
             .putInt("settings_day_starts_minute", s.dayStartsMinute)
             .putString("settings_theme_mode", s.themeMode.name)
+            .putString("settings_color_theme", s.colorTheme.name)
             .putInt("settings_default_reminder_hour", s.defaultReminderHour)
             .putInt("settings_default_reminder_minute", s.defaultReminderMinute)
             .apply()
