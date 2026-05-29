@@ -11,10 +11,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import java.util.Calendar
 import java.util.UUID
 import androidx.compose.foundation.rememberScrollState
@@ -115,6 +119,18 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     var newTagName by remember { mutableStateOf("") }
     var newTagColorIndex by remember { mutableStateOf(0) }
 
+    val existingCards by viewModel.cards.collectAsState()
+    val completedCards by viewModel.completedCards.collectAsState()
+    var nameFocused by remember { mutableStateOf(false) }
+
+    val nameSuggestions = remember(name, nameFocused, existingCards, completedCards) {
+        if (name.isBlank() || !nameFocused) emptyList()
+        else (existingCards + completedCards)
+            .filter { it.name.contains(name, ignoreCase = true) && !it.name.equals(name, ignoreCase = true) }
+            .distinctBy { it.name }
+            .take(8)
+    }
+
     val nameLabel = stringResource(R.string.name)
     val nameRequiredLabel = stringResource(R.string.name_required)
     val descLabel = stringResource(R.string.description)
@@ -210,19 +226,48 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it; nameHasError = false },
-                label = { Text(nameLabel) },
-                isError = nameHasError,
-                supportingText = { if (nameHasError) Text(nameRequiredLabel) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions =KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Next
+            Box {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it; nameHasError = false },
+                    label = { Text(nameLabel) },
+                    isError = nameHasError,
+                    supportingText = { if (nameHasError) Text(nameRequiredLabel) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { f -> nameFocused = f.isFocused },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Next
+                    )
                 )
-            )
+                DropdownMenu(
+                    expanded = nameSuggestions.isNotEmpty(),
+                    onDismissRequest = { nameFocused = false }
+                ) {
+                    nameSuggestions.forEach { card ->
+                        DropdownMenuItem(
+                            text = { Text("${card.name} (duplicate)") },
+                            onClick = {
+                                name = card.name
+                                description = card.description
+                                taskSetTimeStart = card.taskSetTimeStart ?: ""
+                                taskSetTimeEnd = card.taskSetTimeEnd ?: ""
+                                reminderMinutesBefore = card.reminderMinutesBefore
+                                reminderCustomTime = card.reminderCustomTime
+                                repeatType = card.repeatType
+                                repeatDaysOfWeek = card.repeatDaysOfWeek
+                                repeatEndDate = card.repeatEndDate ?: ""
+                                repeatSkipDates = card.repeatSkipDates ?: ""
+                                checklistItems = card.checklist
+                                cardTagIds = card.tagIds
+                                nameFocused = false
+                            }
+                        )
+                    }
+                }
+            }
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = description,
