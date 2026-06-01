@@ -91,8 +91,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     var nameHasError by remember { mutableStateOf(false) }
     var taskSetTimeStart by remember { mutableStateOf(editing?.taskSetTimeStart ?: DateHelper.todayDate()) }
     var taskSetTimeEnd by remember { mutableStateOf(editing?.taskSetTimeEnd ?: "") }
-    var reminderMinutesBefore by remember { mutableStateOf(editing?.reminderMinutesBefore) }
-    var reminderCustomTime by remember { mutableStateOf(editing?.reminderCustomTime) }
+    var cardReminders by remember { mutableStateOf(editing?.reminders ?: emptyList()) }
 
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
@@ -189,8 +188,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
         description = editing?.description ?: ""
         taskSetTimeStart = editing?.taskSetTimeStart ?: ""
         taskSetTimeEnd = editing?.taskSetTimeEnd ?: ""
-        reminderMinutesBefore = editing?.reminderMinutesBefore
-        reminderCustomTime = editing?.reminderCustomTime
+        cardReminders = editing?.reminders ?: emptyList()
         repeatType = editing?.repeatType ?: RepeatType.NONE
         repeatDaysOfWeek = editing?.repeatDaysOfWeek
         repeatEndDate = editing?.repeatEndDate ?: ""
@@ -367,22 +365,36 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(4.dp))
-            OutlinedButton(onClick = { showReminderPicker = true }) {
-                val customTime = reminderCustomTime
-                val reminderText = if (customTime != null) {
-                    "Custom: ${customTime.replace("T", " ")}"
-                } else when (reminderMinutesBefore) {
-                    null -> reminderNoneLabel
-                    0 -> reminderAtTimeLabel
-                    5 -> reminder5minLabel
-                    15 -> reminder15minLabel
-                    30 -> reminder30minLabel
-                    60 -> reminder1hrLabel
-                    120 -> reminder2hrLabel
-                    1440 -> reminder1dayLabel
-                    else -> "$reminderMinutesBefore min"
+            cardReminders.forEach { reminder ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 2.dp)
+                ) {
+                    val label = if (reminder.customTime != null) {
+                        "Custom: ${reminder.customTime.replace("T", " ")}"
+                    } else when (reminder.minutesBefore) {
+                        null -> reminderNoneLabel
+                        0 -> reminderAtTimeLabel
+                        5 -> reminder5minLabel
+                        15 -> reminder15minLabel
+                        30 -> reminder30minLabel
+                        60 -> reminder1hrLabel
+                        120 -> reminder2hrLabel
+                        1440 -> reminder1dayLabel
+                        else -> "${reminder.minutesBefore} min"
+                    }
+                    Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { cardReminders = cardReminders.filterNot { it.id == reminder.id } }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Remove reminder")
+                    }
                 }
-                Text(reminderText)
+            }
+            if (cardReminders.size < 5) {
+                TextButton(onClick = { showReminderPicker = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add reminder", style = MaterialTheme.typography.bodySmall)
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -472,8 +484,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                             description = description.trim(),
                             taskSetTimeStart = taskSetTimeStart.ifBlank { DateHelper.todayDate() },
                             taskSetTimeEnd = taskSetTimeEnd.ifBlank { null },
-                            reminderMinutesBefore = reminderMinutesBefore,
-                            reminderCustomTime = reminderCustomTime,
+                            reminders = cardReminders,
                             repeatType = repeatType,
                             repeatDaysOfWeek = repeatDaysOfWeek,
                             repeatEndDate = repeatEndDate.ifBlank { null },
@@ -488,8 +499,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                             description = description.trim(),
                             taskSetTimeStart = taskSetTimeStart.ifBlank { DateHelper.todayDate() },
                             taskSetTimeEnd = taskSetTimeEnd.ifBlank { null },
-                            reminderMinutesBefore = reminderMinutesBefore,
-                            reminderCustomTime = reminderCustomTime,
+                            reminders = cardReminders,
                             repeatType = repeatType,
                             repeatDaysOfWeek = repeatDaysOfWeek,
                             repeatEndDate = repeatEndDate.ifBlank { null },
@@ -691,8 +701,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                     ).forEach { (value, label) ->
                         TextButton(
                             onClick = {
-                                reminderMinutesBefore = value
-                                reminderCustomTime = null
+                                cardReminders = cardReminders + CardReminder(minutesBefore = value)
                                 showReminderPicker = false
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -702,9 +711,8 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                     }
                     TextButton(
                         onClick = {
-                            reminderMinutesBefore = null
-                            reminderCustomTime = null
                             showReminderPicker = false
+                            tempCustomReminderDate = ""
                             showCustomReminderDatePicker = true
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -762,7 +770,8 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 TextButton(onClick = {
                     val time = "${state.hour.toString().padStart(2, '0')}:${state.minute.toString().padStart(2, '0')}"
                     val date = tempCustomReminderDate.ifBlank { DateHelper.todayDate() }
-                    reminderCustomTime = "$date${'T'}$time"
+                    cardReminders = cardReminders + CardReminder(customTime = "$date${'T'}$time")
+                    tempCustomReminderDate = ""
                     showCustomReminderTimePicker = false
                 }) { Text(okLabel) }
             },
