@@ -32,9 +32,6 @@
             android:name=".ReminderReceiver"
             android:exported="false" />
         <receiver
-            android:name=".TodayCardsReceiver"
-            android:exported="false" />
-        <receiver
             android:name=".BootReceiver"
             android:exported="false">
             <intent-filter>
