@@ -6,6 +6,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.media.MediaPlayer
+import android.media.RingtoneManager
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import java.util.Calendar
@@ -122,6 +125,18 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         persistAsync()
     }
 
+    private fun playCheckSound() {
+        try {
+            val customUri = prefs.getString("check_sound_uri", null)
+            val uri = customUri?.let { Uri.parse(it) }
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            MediaPlayer.create(getApplication(), uri).apply {
+                setOnCompletionListener { release() }
+                start()
+            }
+        } catch (_: Exception) { }
+    }
+
     fun toggleFinished(card: CardItem) {
         val original = _cards.value.find { it.id == card.id }
         if (original != null) {
@@ -138,6 +153,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                     repeatCompletionCount = newCount
                 ))
             } else {
+                playCheckSound()
                 val today = DateHelper.todayDate()
                 if (original.repeatType != RepeatType.NONE) {
                     updateCard(original.copy(
