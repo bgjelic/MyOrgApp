@@ -30,58 +30,64 @@ class BootReceiver : BroadcastReceiver() {
 
         for (card in cards) {
             if (card.finished) continue
+            if (card.reminders.isEmpty()) continue
 
-            val triggerAt: Long
-            if (card.reminderCustomTime != null) {
-                triggerAt = try {
-                    val cal = DateHelper.parseDateTime(card.reminderCustomTime)
-                    if (cal.before(DateHelper.nowCal())) {
-                        cal.add(Calendar.DAY_OF_MONTH, 1)
-                        if (cal.before(DateHelper.nowCal())) continue
-                    }
-                    cal.timeInMillis
-                } catch (_: Exception) { continue }
-            } else {
-                val minutesBefore = card.reminderMinutesBefore ?: continue
-                val start = card.taskSetTimeStart ?: continue
-                triggerAt = try {
-                    val cal = if (start.contains("T")) {
-                        DateHelper.parseDateTime(start)
-                    } else {
-                        DateHelper.parseDate(start).apply {
-                            set(Calendar.HOUR_OF_DAY, remHour)
-                            set(Calendar.MINUTE, remMinute)
-                            set(Calendar.SECOND, 0)
-                            set(Calendar.MILLISECOND, 0)
+            for ((index, reminder) in card.reminders.withIndex()) {
+                val requestCode = ((card.id % 100000) * 10 + index).toInt()
+
+                val triggerAt: Long
+                if (reminder.customTime != null) {
+                    triggerAt = try {
+                        val cal = DateHelper.parseDateTime(reminder.customTime)
+                        if (cal.before(DateHelper.nowCal())) {
+                            cal.add(Calendar.DAY_OF_MONTH, 1)
+                            if (cal.before(DateHelper.nowCal())) continue
                         }
-                    }
-                    cal.add(Calendar.MINUTE, -minutesBefore)
-                    if (cal.before(DateHelper.nowCal())) {
-                        cal.add(Calendar.DAY_OF_MONTH, 1)
-                        if (cal.before(DateHelper.nowCal())) continue
-                    }
-                    cal.timeInMillis
-                } catch (_: Exception) { continue }
-            }
+                        cal.timeInMillis
+                    } catch (_: Exception) { continue }
+                } else {
+                    val minutesBefore = reminder.minutesBefore ?: continue
+                    val start = card.taskSetTimeStart ?: continue
+                    triggerAt = try {
+                        val cal = if (start.contains("T")) {
+                            DateHelper.parseDateTime(start)
+                        } else {
+                            DateHelper.parseDate(start).apply {
+                                set(Calendar.HOUR_OF_DAY, remHour)
+                                set(Calendar.MINUTE, remMinute)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }
+                        }
+                        cal.add(Calendar.MINUTE, -minutesBefore)
+                        if (cal.before(DateHelper.nowCal())) {
+                            cal.add(Calendar.DAY_OF_MONTH, 1)
+                            if (cal.before(DateHelper.nowCal())) continue
+                        }
+                        cal.timeInMillis
+                    } catch (_: Exception) { continue }
+                }
 
-            val alarmIntent = Intent(context, ReminderReceiver::class.java).apply {
-                putExtra(NotificationHelper.EXTRA_CARD_ID, card.id)
-                putExtra(NotificationHelper.EXTRA_CARD_NAME, card.name)
-                putExtra(NotificationHelper.EXTRA_CARD_DESC, card.description)
+                val alarmIntent = Intent(context, ReminderReceiver::class.java).apply {
+                    putExtra(NotificationHelper.EXTRA_CARD_ID, card.id)
+                    putExtra(NotificationHelper.EXTRA_CARD_NAME, card.name)
+                    putExtra(NotificationHelper.EXTRA_CARD_DESC, card.description)
+                    putExtra(NotificationHelper.EXTRA_NOTIFICATION_ID, requestCode)
+                }
+                val pi = PendingIntent.getBroadcast(
+                    context, requestCode, alarmIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                    alarmManager.canScheduleExactAlarms()
+                ) {
+                    try {
+                        alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, null), pi)
+                        continue
+                    } catch (_: Exception) { }
+                }
+                alarmManager.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, 60_000, pi)
             }
-            val pi = PendingIntent.getBroadcast(
-                context, card.id.toInt(), alarmIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                alarmManager.canScheduleExactAlarms()
-            ) {
-                try {
-                    alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, null), pi)
-                    continue
-                } catch (_: Exception) { }
-            }
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, 60_000, pi)
         }
     }
 }

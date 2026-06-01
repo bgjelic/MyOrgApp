@@ -457,10 +457,10 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    private fun computeTriggerTime(card: CardItem): Long? {
-        if (card.reminderCustomTime != null) {
+    private fun computeTriggerTime(card: CardItem, reminder: CardReminder): Long? {
+        if (reminder.customTime != null) {
             return try {
-                val cal = DateHelper.parseDateTime(card.reminderCustomTime)
+                val cal = DateHelper.parseDateTime(reminder.customTime)
                 if (cal.before(DateHelper.nowCal())) {
                     cal.add(Calendar.DAY_OF_MONTH, 1)
                     if (cal.before(DateHelper.nowCal())) null else cal.timeInMillis
@@ -470,7 +470,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                 null
             }
         }
-        val minutesBefore = card.reminderMinutesBefore ?: return null
+        val minutesBefore = reminder.minutesBefore ?: return null
         val start = card.taskSetTimeStart ?: return null
         return try {
             val cal = if (start.contains("T")) {
@@ -500,55 +500,62 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             Log.d("Reminder", "scheduleReminder: card ${card.id} is finished, skipping")
             return
         }
-        val triggerAt = computeTriggerTime(card)
-        if (triggerAt == null) {
-            Log.e("Reminder", "scheduleReminder: computeTriggerTime returned null for card ${card.id}")
-            return
-        }
-        Log.d("Reminder", "scheduleReminder: card ${card.id}, triggerAt=$triggerAt")
         val context = getApplication<Application>()
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, ReminderReceiver::class.java).apply {
-            putExtra(NotificationHelper.EXTRA_CARD_ID, card.id)
-            putExtra(NotificationHelper.EXTRA_CARD_NAME, card.name)
-            putExtra(NotificationHelper.EXTRA_CARD_DESC, card.description)
-        }
-        val pi = PendingIntent.getBroadcast(
-            context, card.id.toInt(), intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            alarmManager.canScheduleExactAlarms()
-        ) {
-            try {
-                Log.d("Reminder", "scheduleReminder: using setAlarmClock")
-                alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, null), pi)
-                Log.d("Reminder", "scheduleReminder: setAlarmClock succeeded")
-                return
-            } catch (e: Exception) {
-                Log.e("Reminder", "scheduleReminder: setAlarmClock failed for card ${card.id}: $e")
+        for ((index, reminder) in card.reminders.withIndex()) {
+            val triggerAt = computeTriggerTime(card, reminder)
+            if (triggerAt == null) {
+                Log.d("Reminder", "scheduleReminder: card ${card.id} reminder $index has no trigger time, skipping")
+                continue
             }
-        }
-        try {
-            Log.d("Reminder", "scheduleReminder: using setWindow (fallback)")
-            alarmManager.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, 60_000, pi)
-            Log.d("Reminder", "scheduleReminder: setWindow succeeded")
-        } catch (e: Exception) {
-            Log.e("Reminder", "scheduleReminder: setWindow also failed for card ${card.id}: $e")
+            val requestCode = ((card.id % 100000) * 10 + index).toInt()
+            Log.d("Reminder", "scheduleReminder: card ${card.id} reminder $index, triggerAt=$triggerAt, requestCode=$requestCode")
+            val intent = Intent(context, ReminderReceiver::class.java).apply {
+                putExtra(NotificationHelper.EXTRA_CARD_ID, card.id)
+                putExtra(NotificationHelper.EXTRA_CARD_NAME, card.name)
+                putExtra(NotificationHelper.EXTRA_CARD_DESC, card.description)
+                putExtra(NotificationHelper.EXTRA_NOTIFICATION_ID, requestCode)
+            }
+            val pi = PendingIntent.getBroadcast(
+                context, requestCode, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                alarmManager.canScheduleExactAlarms()
+            ) {
+                try {
+                    Log.d("Reminder", "scheduleReminder: using setAlarmClock")
+                    alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, null), pi)
+                    Log.d("Reminder", "scheduleReminder: setAlarmClock succeeded")
+                    continue
+                } catch (e: Exception) {
+                    Log.e("Reminder", "scheduleReminder: setAlarmClock failed for card ${card.id}: $e")
+                }
+            }
+            try {
+                Log.d("Reminder", "scheduleReminder: using setWindow (fallback)")
+                alarmManager.setWindow(AlarmManager.RTC_WAKEUP, triggerAt, 60_000, pi)
+                Log.d("Reminder", "scheduleReminder: setWindow succeeded")
+            } catch (e: Exception) {
+                Log.e("Reminder", "scheduleReminder: setWindow also failed for card ${card.id}: $e")
+            }
         }
     }
 
     private fun cancelReminder(card: CardItem) {
         val context = getApplication<Application>()
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, ReminderReceiver::class.java)
-        val pi = PendingIntent.getBroadcast(
-            context, card.id.toInt(), intent,
-            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-        )
-        pi?.let {
-            alarmManager.cancel(it)
-            it.cancel()
+        for (index in card.reminders.indices) {
+            val requestCode = ((card.id % 100000) * 10 + index).toInt()
+            val intent = Intent(context, ReminderReceiver::class.java)
+            val pi = PendingIntent.getBroadcast(
+                context, requestCode, intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+            pi?.let {
+                alarmManager.cancel(it)
+                it.cancel()
+            }
         }
     }
 
