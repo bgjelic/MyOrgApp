@@ -1,7 +1,9 @@
 package com.example.myorgapp
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,6 +63,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import com.example.myorgapp.RepeatType
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -168,6 +171,14 @@ fun MainScreen(
     val completedTabLabel = stringResource(R.string.completed_tab)
     val noActiveCardsLabel = stringResource(R.string.no_active_cards)
     val noCompletedCardsLabel = stringResource(R.string.no_completed_cards)
+
+    val highlightedCardId by viewModel.highlightedCardId.collectAsState()
+    LaunchedEffect(highlightedCardId) {
+        if (highlightedCardId != null) {
+            delay(2000)
+            viewModel.setHighlightedCardId(null)
+        }
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val toastMessage by viewModel.toastMessage.collectAsState()
@@ -336,7 +347,11 @@ fun MainScreen(
                                     card = card,
                                     tags = tags,
                                     overdueInfo = overdueInfo,
-                                    onClick = { onEdit(card) },
+                                    highlightedCardId = highlightedCardId,
+                                    onClick = {
+                                        viewModel.setHighlightedCardId(null)
+                                        onEdit(card)
+                                    },
                                     onToggleFinished = { onToggleFinished(card) },
                                     onDelete = { onDelete(card.id) },
                                     onToggleChecklistItem = { itemId -> viewModel.toggleChecklistItem(card.id, itemId) }
@@ -453,6 +468,7 @@ private fun ActiveCardRow(
     card: CardItem,
     tags: List<CardTag> = emptyList(),
     overdueInfo: OverdueInfo?,
+    highlightedCardId: Long? = null,
     onClick: () -> Unit,
     onToggleFinished: () -> Unit,
     onDelete: () -> Unit,
@@ -484,13 +500,21 @@ private fun ActiveCardRow(
     }
 
     val checkExpanded = remember { mutableStateOf(false) }
+    val isHighlighted = highlightedCardId == card.id
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(4.dp)
+            .then(
+                if (isHighlighted) Modifier.border(
+                    BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                    RoundedCornerShape(8.dp)
+                ) else Modifier
+            )
             .clickable { onClick() },
         colors = when {
+            isHighlighted -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
             card.finished -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             overdueText != null -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
             else -> CardDefaults.cardColors()
