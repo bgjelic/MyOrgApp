@@ -1,5 +1,6 @@
 package com.example.myorgapp
 
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -19,10 +20,16 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import java.util.Calendar
 import java.util.UUID
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -52,6 +59,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -86,12 +94,22 @@ private fun parseMinute(dateTimeStr: String?): Int {
 @Composable
 fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     val editing by viewModel.editing.collectAsState()
+    val focusRequester = remember { FocusRequester() }
     var name by remember { mutableStateOf(editing?.name ?: "") }
     var description by remember { mutableStateOf(editing?.description ?: "") }
     var nameHasError by remember { mutableStateOf(false) }
-    var taskSetTimeStart by remember { mutableStateOf(editing?.taskSetTimeStart ?: DateHelper.todayDate()) }
-    var taskSetTimeEnd by remember { mutableStateOf(editing?.taskSetTimeEnd ?: "") }
-    var cardReminders by remember { mutableStateOf(editing?.reminders ?: emptyList()) }
+    val defaultStart = remember {
+        "${DateHelper.todayDate()}T${DateHelper.formatTime(DateHelper.nowCal())}"
+    }
+    val defaultEnd = remember {
+        val cal = DateHelper.nowCal()
+        cal.add(Calendar.HOUR_OF_DAY, 1)
+        "${DateHelper.todayDate()}T${DateHelper.formatTime(cal)}"
+    }
+    val defaultReminders = remember { listOf(CardReminder(minutesBefore = 15)) }
+    var taskSetTimeStart by remember { mutableStateOf(editing?.taskSetTimeStart ?: defaultStart) }
+    var taskSetTimeEnd by remember { mutableStateOf(editing?.taskSetTimeEnd ?: defaultEnd) }
+    var cardReminders by remember { mutableStateOf(editing?.reminders ?: defaultReminders) }
 
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
@@ -184,18 +202,76 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     val daySunLabel = stringResource(R.string.day_sun)
 
     LaunchedEffect(editing?.id) {
-        name = editing?.name ?: ""
-        description = editing?.description ?: ""
-        taskSetTimeStart = editing?.taskSetTimeStart ?: ""
-        taskSetTimeEnd = editing?.taskSetTimeEnd ?: ""
-        cardReminders = editing?.reminders ?: emptyList()
-        repeatType = editing?.repeatType ?: RepeatType.NONE
-        repeatDaysOfWeek = editing?.repeatDaysOfWeek
-        repeatEndDate = editing?.repeatEndDate ?: ""
-        repeatSkipDates = editing?.repeatSkipDates ?: ""
-        checklistItems = editing?.checklist ?: emptyList()
-        newChecklistText = ""
-        cardTagIds = editing?.tagIds ?: emptyList()
+        if (editing == null) {
+            name = ""
+            description = ""
+            taskSetTimeStart = defaultStart
+            taskSetTimeEnd = defaultEnd
+            cardReminders = defaultReminders
+            repeatType = RepeatType.NONE
+            repeatDaysOfWeek = null
+            repeatEndDate = ""
+            repeatSkipDates = ""
+            checklistItems = emptyList()
+            newChecklistText = ""
+            cardTagIds = emptyList()
+        } else {
+            name = editing?.name ?: ""
+            description = editing?.description ?: ""
+            taskSetTimeStart = editing?.taskSetTimeStart ?: ""
+            taskSetTimeEnd = editing?.taskSetTimeEnd ?: ""
+            cardReminders = editing?.reminders ?: emptyList()
+            repeatType = editing?.repeatType ?: RepeatType.NONE
+            repeatDaysOfWeek = editing?.repeatDaysOfWeek
+            repeatEndDate = editing?.repeatEndDate ?: ""
+            repeatSkipDates = editing?.repeatSkipDates ?: ""
+            checklistItems = editing?.checklist ?: emptyList()
+            newChecklistText = ""
+            cardTagIds = editing?.tagIds ?: emptyList()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (editing == null) focusRequester.requestFocus()
+    }
+
+    fun saveCard() {
+        if (name.isBlank()) {
+            nameHasError = true
+            return
+        }
+        if (editing == null) {
+            viewModel.addCard(
+                name = name.trim(),
+                description = description.trim(),
+                taskSetTimeStart = taskSetTimeStart.ifBlank { DateHelper.todayDate() },
+                taskSetTimeEnd = taskSetTimeEnd.ifBlank { null },
+                reminders = cardReminders,
+                repeatType = repeatType,
+                repeatDaysOfWeek = repeatDaysOfWeek,
+                repeatEndDate = repeatEndDate.ifBlank { null },
+                repeatSkipDates = repeatSkipDates.ifBlank { null },
+                checklist = checklistItems,
+                tagIds = cardTagIds
+            )
+        } else {
+            val current = editing!!
+            val updated = current.copy(
+                name = name.trim(),
+                description = description.trim(),
+                taskSetTimeStart = taskSetTimeStart.ifBlank { DateHelper.todayDate() },
+                taskSetTimeEnd = taskSetTimeEnd.ifBlank { null },
+                reminders = cardReminders,
+                repeatType = repeatType,
+                repeatDaysOfWeek = repeatDaysOfWeek,
+                repeatEndDate = repeatEndDate.ifBlank { null },
+                repeatSkipDates = repeatSkipDates.ifBlank { null },
+                checklist = checklistItems,
+                tagIds = cardTagIds
+            )
+            viewModel.updateCard(updated)
+        }
+        onDone()
     }
 
     Scaffold(
@@ -234,11 +310,15 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                     supportingText = { if (nameHasError) Text(nameRequiredLabel) },
                     modifier = Modifier
                         .fillMaxWidth()
+                        .focusRequester(focusRequester)
                         .onFocusChanged { f -> nameFocused = f.isFocused },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences,
-                        imeAction = ImeAction.Next
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { saveCard() }
                     )
                 )
                 DropdownMenu(
@@ -253,8 +333,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                                 description = card.description
                                 taskSetTimeStart = card.taskSetTimeStart ?: ""
                                 taskSetTimeEnd = card.taskSetTimeEnd ?: ""
-                                reminderMinutesBefore = card.reminderMinutesBefore
-                                reminderCustomTime = card.reminderCustomTime
+                                cardReminders = card.reminders
                                 repeatType = card.repeatType
                                 repeatDaysOfWeek = card.repeatDaysOfWeek
                                 repeatEndDate = card.repeatEndDate ?: ""
@@ -427,25 +506,78 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(4.dp))
-            checklistItems.forEach { item ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = item.checked,
-                        onCheckedChange = {
-                            checklistItems = checklistItems.map { i ->
-                                if (i.id == item.id) i.copy(checked = !i.checked) else i
+            var draggedItemId by remember { mutableStateOf<String?>(null) }
+            var dragOffset by remember { mutableStateOf(0f) }
+            checklistItems.forEachIndexed { _, item ->
+                key(item.id) {
+                    val isDragging = draggedItemId == item.id
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .zIndex(if (isDragging) 1f else 0f)
+                            .graphicsLayer {
+                                if (isDragging) {
+                                    translationY = dragOffset
+                                    scaleX = 1.03f
+                                    scaleY = 1.03f
+                                    shadowElevation = 8f
+                                }
                             }
+                            .pointerInput(item.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = {
+                                        draggedItemId = item.id
+                                        dragOffset = 0f
+                                    },
+                                    onDrag = { change, dragAmount ->
+                                        change.consume()
+                                        dragOffset += dragAmount.y
+                                        val id = draggedItemId ?: return@detectDragGesturesAfterLongPress
+                                        val currentPos = checklistItems.indexOfFirst { it.id == id }
+                                        if (currentPos < 0) return@detectDragGesturesAfterLongPress
+                                        val itemHeight = size.height.toFloat()
+                                        if (dragOffset < -itemHeight / 2 && currentPos > 0) {
+                                            val list = checklistItems.toMutableList()
+                                            list.add(currentPos - 1, list.removeAt(currentPos))
+                                            checklistItems = list
+                                            dragOffset += itemHeight
+                                        }
+                                        if (dragOffset > itemHeight / 2 && currentPos < checklistItems.lastIndex) {
+                                            val list = checklistItems.toMutableList()
+                                            list.add(currentPos + 1, list.removeAt(currentPos))
+                                            checklistItems = list
+                                            dragOffset -= itemHeight
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        draggedItemId = null
+                                        dragOffset = 0f
+                                    },
+                                    onDragCancel = {
+                                        draggedItemId = null
+                                        dragOffset = 0f
+                                    }
+                                )
+                            }
+                    ) {
+                        Checkbox(
+                            checked = item.checked,
+                            onCheckedChange = {
+                                checklistItems = checklistItems.map { i ->
+                                    if (i.id == item.id) i.copy(checked = !i.checked) else i
+                                }
+                            }
+                        )
+                        Text(
+                            text = item.text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = {
+                            checklistItems = checklistItems.filterNot { it.id == item.id }
+                        }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Remove item")
                         }
-                    )
-                    Text(
-                        text = item.text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = {
-                        checklistItems = checklistItems.filterNot { it.id == item.id }
-                    }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Remove item")
                     }
                 }
             }
@@ -473,44 +605,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
 
             Spacer(Modifier.height(16.dp))
             Row {
-                Button(onClick = {
-                    if (name.isBlank()) {
-                        nameHasError = true
-                        return@Button
-                    }
-                    if (editing == null) {
-                        viewModel.addCard(
-                            name = name.trim(),
-                            description = description.trim(),
-                            taskSetTimeStart = taskSetTimeStart.ifBlank { DateHelper.todayDate() },
-                            taskSetTimeEnd = taskSetTimeEnd.ifBlank { null },
-                            reminders = cardReminders,
-                            repeatType = repeatType,
-                            repeatDaysOfWeek = repeatDaysOfWeek,
-                            repeatEndDate = repeatEndDate.ifBlank { null },
-                            repeatSkipDates = repeatSkipDates.ifBlank { null },
-                            checklist = checklistItems,
-                            tagIds = cardTagIds
-                        )
-                    } else {
-                        val current = editing!!
-                        val updated = current.copy(
-                            name = name.trim(),
-                            description = description.trim(),
-                            taskSetTimeStart = taskSetTimeStart.ifBlank { DateHelper.todayDate() },
-                            taskSetTimeEnd = taskSetTimeEnd.ifBlank { null },
-                            reminders = cardReminders,
-                            repeatType = repeatType,
-                            repeatDaysOfWeek = repeatDaysOfWeek,
-                            repeatEndDate = repeatEndDate.ifBlank { null },
-                            repeatSkipDates = repeatSkipDates.ifBlank { null },
-                            checklist = checklistItems,
-                            tagIds = cardTagIds
-                        )
-                        viewModel.updateCard(updated)
-                    }
-                    onDone()
-                }) {
+                Button(onClick = { saveCard() }) {
                     Text(saveLabel)
                 }
                 Spacer(Modifier.width(8.dp))

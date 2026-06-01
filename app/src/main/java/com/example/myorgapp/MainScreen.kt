@@ -36,6 +36,9 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -78,6 +81,7 @@ data class OverdueInfo(
 
 private fun getOverdueInfo(card: CardItem): OverdueInfo? {
     if (card.finished || card.taskSetTimeEnd == null) return null
+    if (card.repeatType != RepeatType.NONE) return null
     return try {
         val endCal = DateHelper.parseDateTime(card.taskSetTimeEnd)
         val nowCal = DateHelper.nowCal()
@@ -152,6 +156,9 @@ fun MainScreen(
     val completedCards by viewModel.completedCards.collectAsState()
     val tags by viewModel.tags.collectAsState()
     val tagFilter by viewModel.activeTagFilter.collectAsState()
+    val streak by viewModel.streak.collectAsState()
+    val sortMode by viewModel.sortMode.collectAsState()
+    val cardOrder by viewModel.cardOrder.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
 
@@ -237,18 +244,26 @@ fun MainScreen(
                 0 -> {
                     val today = DateHelper.todayDate()
                     val todayCards = remember(cards) { viewModel.getCardsForDate(today) }
-                    val totalToday = todayCards.size
-                    val completedToday = todayCards.count { it.finished }
-                    val sortedCards = remember(filteredCards) {
-                        filteredCards.sortedWith(compareBy<CardItem> { card ->
-                            when {
-                                card.finished -> 4L
-                                card.taskSetTimeStart == null -> 3L
-                                DateHelper.getDatePart(card.taskSetTimeStart) < today -> 0L
-                                DateHelper.getDatePart(card.taskSetTimeStart) == today -> 1L
-                                else -> 2L
-                            }
-                        }.thenBy { it.taskSetTimeStart })
+                    val todayCompletedFromCompleted = remember(completedCards) {
+                        completedCards.filter { it.dateCompleted == today }
+                    }
+                    val totalToday = todayCards.size + todayCompletedFromCompleted.size
+                    val completedToday = todayCards.count { it.finished } + todayCompletedFromCompleted.size
+                    val sortedCards = remember(filteredCards, sortMode, cardOrder) {
+                        if (sortMode == "custom") {
+                            val orderMap = cardOrder.withIndex().associate { (idx, id) -> id to idx }
+                            filteredCards.sortedBy { orderMap[it.id] ?: Int.MAX_VALUE }
+                        } else {
+                            filteredCards.sortedWith(compareBy<CardItem> { card ->
+                                when {
+                                    card.finished -> 4L
+                                    card.taskSetTimeStart == null -> 3L
+                                    DateHelper.getDatePart(card.taskSetTimeStart) < today -> 0L
+                                    DateHelper.getDatePart(card.taskSetTimeStart) == today -> 1L
+                                    else -> 2L
+                                }
+                            }.thenBy { it.taskSetTimeStart })
+                        }
                     }
 
                     OutlinedTextField(
@@ -338,6 +353,29 @@ fun MainScreen(
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
+                                        if (streak > 0) {
+                                            Spacer(Modifier.width(10.dp))
+                                            Text(
+                                                text = "🔥 $streak days",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Spacer(Modifier.weight(1f))
+                                        IconButton(
+                                            onClick = {
+                                                viewModel.setSortMode(if (sortMode == "auto") "custom" else "auto")
+                                            },
+                                            modifier = Modifier.size(20.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Sort,
+                                                contentDescription = if (sortMode == "auto") "Switch to custom order" else "Switch to auto sort",
+                                                modifier = Modifier.size(16.dp),
+                                                tint = if (sortMode == "custom") MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -354,7 +392,10 @@ fun MainScreen(
                                     },
                                     onToggleFinished = { onToggleFinished(card) },
                                     onDelete = { onDelete(card.id) },
-                                    onToggleChecklistItem = { itemId -> viewModel.toggleChecklistItem(card.id, itemId) }
+                                    onToggleChecklistItem = { itemId -> viewModel.toggleChecklistItem(card.id, itemId) },
+                                    onMoveUp = { viewModel.moveCardUp(card.id) },
+                                    onMoveDown = { viewModel.moveCardDown(card.id) },
+                                    showReorderButtons = sortMode == "custom"
                                 )
                             }
                         }
@@ -472,7 +513,10 @@ private fun ActiveCardRow(
     onClick: () -> Unit,
     onToggleFinished: () -> Unit,
     onDelete: () -> Unit,
-    onToggleChecklistItem: (String) -> Unit = {}
+    onToggleChecklistItem: (String) -> Unit = {},
+    onMoveUp: () -> Unit = {},
+    onMoveDown: () -> Unit = {},
+    showReorderButtons: Boolean = false
 ) {
     val timeInfo = remember(card) { getTimeWindowInfo(card.taskSetTimeStart, card.taskSetTimeEnd) }
 
@@ -536,7 +580,10 @@ private fun ActiveCardRow(
                     .weight(1f)
                     .padding(vertical = 12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     if (overdueText != null) {
                         Text(
                             text = "($overdueText) ",
@@ -551,7 +598,6 @@ private fun ActiveCardRow(
                         else MaterialTheme.colorScheme.onSurface
                     )
                     if (card.checklist.isNotEmpty()) {
-                        Spacer(Modifier.width(6.dp))
                         val checked = card.checklist.count { it.checked }
                         val total = card.checklist.size
                         Text(
@@ -560,33 +606,25 @@ private fun ActiveCardRow(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-                val matchedTags = tags.filter { it.id in card.tagIds }
-                if (matchedTags.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        matchedTags.forEach { tag ->
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(tagPalette[tag.colorIndex % tagPalette.size].copy(alpha = 0.2f))
-                                    .padding(horizontal = 4.dp, vertical = 1.dp)
-                            ) {
-                                Text(
-                                    text = tag.name,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = tagPalette[tag.colorIndex % tagPalette.size]
-                                )
-                            }
+                    val matchedTags = tags.filter { it.id in card.tagIds }
+                    matchedTags.forEach { tag ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(tagPalette[tag.colorIndex % tagPalette.size].copy(alpha = 0.2f))
+                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = tag.name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = tagPalette[tag.colorIndex % tagPalette.size]
+                            )
                         }
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = card.description, style = MaterialTheme.typography.bodyMedium)
-                val hasReminder = card.reminderMinutesBefore != null || card.reminderCustomTime != null
+                val hasReminder = card.reminders.isNotEmpty()
                 if (timeWindowText != null || hasReminder || card.repeatType != RepeatType.NONE || card.checklist.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -643,11 +681,11 @@ private fun ActiveCardRow(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        }
-                    }
                 }
                 AnimatedVisibility(visible = checkExpanded.value) {
-                    Column(modifier = Modifier.padding(start = 8.dp, top = 4.dp)) {
+                    Column(
+                        modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                    ) {
                         card.checklist.forEach { item ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -667,6 +705,16 @@ private fun ActiveCardRow(
                                 )
                             }
                         }
+                    }
+                }
+            }
+            if (showReorderButtons) {
+                Column {
+                    IconButton(onClick = onMoveUp, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.ArrowUpward, contentDescription = "Move up", modifier = Modifier.size(16.dp))
+                    }
+                    IconButton(onClick = onMoveDown, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.ArrowDownward, contentDescription = "Move down", modifier = Modifier.size(16.dp))
                     }
                 }
             }

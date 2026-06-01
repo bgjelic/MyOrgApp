@@ -44,12 +44,30 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
     val showYesterdayDialog: StateFlow<Boolean> = _showYesterdayDialog
 
     private val _toastMessage = MutableStateFlow<String?>(null)
-
     val toastMessage: StateFlow<String?> = _toastMessage
+
+    fun clearToast() {
+        _toastMessage.value = null
+    }
+
+    private val _tags = MutableStateFlow<List<CardTag>>(emptyList())
+    val tags: StateFlow<List<CardTag>> = _tags
+
+    private val _activeTagFilter = MutableStateFlow<String?>(null)
+    val activeTagFilter: StateFlow<String?> = _activeTagFilter
+
+    private val _streak = MutableStateFlow(0)
+    val streak: StateFlow<Int> = _streak
 
     private val _highlightedCardId = MutableStateFlow<Long?>(null)
 
     val highlightedCardId: StateFlow<Long?> = _highlightedCardId
+
+    private val _cardOrder = MutableStateFlow<List<Long>>(emptyList())
+    val cardOrder: StateFlow<List<Long>> = _cardOrder
+
+    private val _sortMode = MutableStateFlow("auto")
+    val sortMode: StateFlow<String> = _sortMode
 
     private var nextId = 0L
 
@@ -62,8 +80,10 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         _cards.value = saved
         nextId = (saved.maxOfOrNull { it.id } ?: 0L) + 1L
         _completedCards.value = loadCompletedFromPrefs()
-        runDailyScanIfNeeded()
+        _cardOrder.value = loadCardOrder()
+        _sortMode.value = prefs.getString("sort_mode", "auto") ?: "auto"
         checkYesterdayUncompleted()
+        runDailyScanIfNeeded()
     }
 
     fun setEditing(card: CardItem?) {
@@ -73,6 +93,50 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setHighlightedCardId(id: Long?) {
         _highlightedCardId.value = id
+    }
+
+    fun setSortMode(mode: String) {
+        _sortMode.value = mode
+        prefs.edit().putString("sort_mode", mode).apply()
+    }
+
+    fun moveCardUp(cardId: Long) {
+        val order = _cardOrder.value.toMutableList()
+        val idx = order.indexOf(cardId)
+        if (idx > 0) {
+            order.removeAt(idx)
+            order.add(idx - 1, cardId)
+            _cardOrder.value = order
+            saveCardOrder()
+        }
+    }
+
+    fun moveCardDown(cardId: Long) {
+        val order = _cardOrder.value.toMutableList()
+        val idx = order.indexOf(cardId)
+        if (idx >= 0 && idx < order.lastIndex) {
+            order.removeAt(idx)
+            order.add(idx + 1, cardId)
+            _cardOrder.value = order
+            saveCardOrder()
+        }
+    }
+
+    fun addCardToOrder(cardId: Long) {
+        val order = _cardOrder.value.toMutableList()
+        if (cardId !in order) {
+            order.add(cardId)
+            _cardOrder.value = order
+            saveCardOrder()
+        }
+    }
+
+    fun removeCardFromOrder(cardId: Long) {
+        val order = _cardOrder.value.toMutableList()
+        if (order.remove(cardId)) {
+            _cardOrder.value = order
+            saveCardOrder()
+        }
     }
 
     fun addCard(
@@ -117,6 +181,8 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         _cards.update { it + card }
         scheduleReminder(card)
         persistAsync()
+        addCardToOrder(card.id)
+        updateStreak()
     }
 
     fun updateCard(updated: CardItem) {
@@ -125,6 +191,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         _cards.update { list -> list.map { if (it.id == updated.id) updated else it } }
         scheduleReminder(updated)
         persistAsync()
+        updateStreak()
     }
 
     fun deleteCard(id: Long) {
@@ -132,6 +199,8 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         card?.let { cancelReminder(it) }
         _cards.update { list -> list.filterNot { it.id == id } }
         persistAsync()
+        removeCardFromOrder(id)
+        updateStreak()
     }
 
     private fun playCheckSound() {
@@ -179,6 +248,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                     persistCompletedAsync()
                 }
             }
+            updateStreak()
             return
         }
 
@@ -188,6 +258,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         _cards.update { list -> list + restored }
         persistAsync()
         persistCompletedAsync()
+        updateStreak()
     }
 
     fun getCardsForDate(dateStr: String): List<CardItem> {
@@ -202,7 +273,19 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             } ?: false
             if (timeMatch) {
                 val isFinished = card.finished && card.dateCompleted == dateStr
-                result.add(card.copy(finished = isFinished, dateCompleted = if (isFinished) dateStr else null))
+                val startDate = card.taskSetTimeStart?.let { DateHelper.getDatePart(it) }
+                val endDate = card.taskSetTimeEnd?.let { DateHelper.getDatePart(it) }
+                if (endDate == dateStr && startDate != null && startDate != endDate) {
+                    val endTime = DateHelper.getTimePart(card.taskSetTimeEnd)
+                    result.add(card.copy(
+                        taskSetTimeStart = "$dateStr${'T'}$endTime",
+                        taskSetTimeEnd = null,
+                        finished = isFinished,
+                        dateCompleted = if (isFinished) dateStr else null
+                    ))
+                } else {
+                    result.add(card.copy(finished = isFinished, dateCompleted = if (isFinished) dateStr else null))
+                }
                 continue
             }
             if (card.repeatType == RepeatType.NONE) continue
@@ -243,6 +326,15 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                 } catch (_: Exception) {}
             }
 
+            card.taskSetTimeEnd?.let { end ->
+                try {
+                    val ed = DateHelper.getDatePart(end)
+                    if (ed >= startOfWeek && ed <= endOfWeek) {
+                        datesInWeek.add(ed)
+                    }
+                } catch (_: Exception) {}
+            }
+
             if (card.repeatType != RepeatType.NONE) {
                 val createdDate = card.dateCreated ?: continue
                 var day = startOfWeek
@@ -263,12 +355,26 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             }
 
             val time = card.taskSetTimeStart?.let { DateHelper.getTimePart(it) }
+            val endTime = card.taskSetTimeEnd?.let { DateHelper.getTimePart(it) }
+            val startDate = card.taskSetTimeStart?.let { DateHelper.getDatePart(it) }
             for (date in datesInWeek.sorted()) {
                 val isFinished = card.finished && card.dateCompleted == date
-                result.add(if (time != null) {
-                    card.copy(taskSetTimeStart = "$date${'T'}$time", finished = isFinished, dateCompleted = if (isFinished) date else null)
+                val useEndTime = date != startDate && startDate != null && endTime != null
+                val dateTime = if (useEndTime) endTime else time
+                result.add(if (dateTime != null) {
+                    card.copy(
+                        taskSetTimeStart = "$date${'T'}$dateTime",
+                        taskSetTimeEnd = if (useEndTime) null else card.taskSetTimeEnd,
+                        finished = isFinished,
+                        dateCompleted = if (isFinished) date else null
+                    )
                 } else {
-                    card.copy(taskSetTimeStart = date, finished = isFinished, dateCompleted = if (isFinished) date else null)
+                    card.copy(
+                        taskSetTimeStart = date,
+                        taskSetTimeEnd = if (useEndTime) null else card.taskSetTimeEnd,
+                        finished = isFinished,
+                        dateCompleted = if (isFinished) date else null
+                    )
                 })
             }
         }
@@ -284,6 +390,14 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                 try {
                     if (DateHelper.getYearMonth(start) == yearMonth) {
                         datesInMonth.add(DateHelper.getDatePart(start))
+                    }
+                } catch (_: Exception) {}
+            }
+
+            card.taskSetTimeEnd?.let { end ->
+                try {
+                    if (DateHelper.getYearMonth(end) == yearMonth) {
+                        datesInMonth.add(DateHelper.getDatePart(end))
                     }
                 } catch (_: Exception) {}
             }
@@ -310,12 +424,26 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             }
 
             val time = card.taskSetTimeStart?.let { DateHelper.getTimePart(it) }
+            val endTime = card.taskSetTimeEnd?.let { DateHelper.getTimePart(it) }
+            val startDate = card.taskSetTimeStart?.let { DateHelper.getDatePart(it) }
             for (date in datesInMonth.sorted()) {
                 val isFinished = card.finished && card.dateCompleted == date
-                result.add(if (time != null) {
-                    card.copy(taskSetTimeStart = "$date${'T'}$time", finished = isFinished, dateCompleted = if (isFinished) date else null)
+                val useEndTime = date != startDate && startDate != null && endTime != null
+                val dateTime = if (useEndTime) endTime else time
+                result.add(if (dateTime != null) {
+                    card.copy(
+                        taskSetTimeStart = "$date${'T'}$dateTime",
+                        taskSetTimeEnd = if (useEndTime) null else card.taskSetTimeEnd,
+                        finished = isFinished,
+                        dateCompleted = if (isFinished) date else null
+                    )
                 } else {
-                    card.copy(taskSetTimeStart = date, finished = isFinished, dateCompleted = if (isFinished) date else null)
+                    card.copy(
+                        taskSetTimeStart = date,
+                        taskSetTimeEnd = if (useEndTime) null else card.taskSetTimeEnd,
+                        finished = isFinished,
+                        dateCompleted = if (isFinished) date else null
+                    )
                 })
             }
         }
@@ -449,11 +577,47 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun checkYesterdayCard(card: CardItem) {
-        toggleFinished(card)
+        val yesterday = DateHelper.addDays(DateHelper.todayDate(), -1)
+        val original = _cards.value.find { it.id == card.id }
+        if (original != null) {
+            if (original.repeatType != RepeatType.NONE) {
+                updateCard(original.copy(
+                    finished = true,
+                    dateCompleted = yesterday,
+                    repeatCompletionCount = original.repeatCompletionCount + 1
+                ))
+            } else {
+                cancelReminder(original)
+                _cards.update { list -> list.filterNot { it.id == original.id } }
+                _completedCards.update { list -> list + original.copy(finished = true, dateCompleted = yesterday) }
+                persistAsync()
+                persistCompletedAsync()
+            }
+        }
         _yesterdayUncompleted.value = _yesterdayUncompleted.value.filterNot { it.id == card.id }
         if (_yesterdayUncompleted.value.isEmpty()) {
             dismissYesterdayDialog()
         }
+        updateStreak()
+    }
+
+    private fun calculateStreak(): Int {
+        val today = DateHelper.todayDate()
+        var consecutive = 0
+        var d = today
+        while (true) {
+            val active = getCardsForDate(d)
+            val completedOnDay = _completedCards.value.filter { it.dateCompleted == d }
+            if (active.isEmpty() && completedOnDay.isEmpty()) break
+            if (active.any { !it.finished }) break
+            consecutive++
+            d = DateHelper.addDays(d, -1)
+        }
+        return maxOf(0, consecutive - 1)
+    }
+
+    fun updateStreak() {
+        _streak.value = calculateStreak()
     }
 
     private fun computeTriggerTime(card: CardItem, reminder: CardReminder): Long? {
@@ -574,9 +738,13 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
 
             for (card in _cards.value) {
                 if (card.repeatType != RepeatType.NONE && card.finished && card.dateCompleted != null && card.dateCompleted < todayDate) {
+                    val startTime = card.taskSetTimeStart?.let { DateHelper.getTimePart(it) }
+                    val endTime = card.taskSetTimeEnd?.let { DateHelper.getTimePart(it) }
                     val renewedCard = card.copy(
                         finished = false,
                         dateCompleted = null,
+                        taskSetTimeStart = if (startTime != null) "${todayDate}T$startTime" else todayDate,
+                        taskSetTimeEnd = if (endTime != null) "${todayDate}T$endTime" else null,
                         checklist = emptyList()
                     )
                     renewed.add(renewedCard)
@@ -591,6 +759,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                 persistAsync()
             }
             prefs.edit().putString("last_scan_date", todayDate).apply()
+            updateStreak()
         }
     }
 
@@ -623,6 +792,20 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         } catch (e: Exception) {
             emptyList()
         }
+    }
+
+    private fun loadCardOrder(): List<Long> {
+        val json = prefs.getString("card_order", null) ?: return _cards.value.map { it.id }
+        return try {
+            val type = object : TypeToken<List<Long>>() {}.type
+            gson.fromJson(json, type) ?: _cards.value.map { it.id }
+        } catch (e: Exception) {
+            _cards.value.map { it.id }
+        }
+    }
+
+    private fun saveCardOrder() {
+        prefs.edit().putString("card_order", gson.toJson(_cardOrder.value)).apply()
     }
 
     private fun loadCompletedFromPrefs(): List<CardItem> {
