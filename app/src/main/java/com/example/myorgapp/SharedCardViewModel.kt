@@ -44,17 +44,12 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
     val showYesterdayDialog: StateFlow<Boolean> = _showYesterdayDialog
 
     private val _toastMessage = MutableStateFlow<String?>(null)
+
     val toastMessage: StateFlow<String?> = _toastMessage
 
-    private val _tags = MutableStateFlow<List<CardTag>>(emptyList())
-    val tags: StateFlow<List<CardTag>> = _tags
+    private val _highlightedCardId = MutableStateFlow<Long?>(null)
 
-    private val _activeTagFilter = MutableStateFlow<String?>(null)
-    val activeTagFilter: StateFlow<String?> = _activeTagFilter
-
-    fun clearToast() {
-        _toastMessage.value = null
-    }
+    val highlightedCardId: StateFlow<Long?> = _highlightedCardId
 
     private var nextId = 0L
 
@@ -74,6 +69,10 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
     fun setEditing(card: CardItem?) {
         _editing.value = if (card == null) null
         else _cards.value.find { it.id == card.id } ?: card
+    }
+
+    fun setHighlightedCardId(id: Long?) {
+        _highlightedCardId.value = id
     }
 
     fun addCard(

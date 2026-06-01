@@ -70,10 +70,9 @@ class MainActivity : ComponentActivity() {
                 val cardId = notificationCardId.value
                 LaunchedEffect(cardId) {
                     cardId?.let { id ->
-                        val card = viewModel.cards.value.find { it.id == id }
-                        if (card != null) {
-                            viewModel.setEditing(card)
-                            navController.navigate("editor")
+                        viewModel.setHighlightedCardId(id)
+                        navController.navigate("main") {
+                            popUpTo("main") { inclusive = true }
                         }
                         notificationCardId.value = null
                     }
