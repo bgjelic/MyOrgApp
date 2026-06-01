@@ -10,12 +10,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -258,31 +259,37 @@ fun MainScreen(
                     )
 
                     if (tags.isNotEmpty()) {
-                        LazyRow(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        val tagScroll = rememberScrollState()
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .heightIn(max = 112.dp)
+                                .verticalScroll(tagScroll)
                         ) {
-                            item {
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
                                 FilterChip(
                                     selected = tagFilter == null,
                                     onClick = { viewModel.setTagFilter(null) },
                                     label = { Text("All") }
                                 )
-                            }
-                            items(tags) { tag ->
-                                FilterChip(
-                                    selected = tagFilter == tag.id,
-                                    onClick = { viewModel.setTagFilter(tag.id) },
-                                    label = { Text(tag.name) },
-                                    leadingIcon = {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(tagPalette[tag.colorIndex % tagPalette.size])
-                                        )
-                                    }
-                                )
+                                tags.forEach { tag ->
+                                    FilterChip(
+                                        selected = tagFilter == tag.id,
+                                        onClick = { viewModel.setTagFilter(tag.id) },
+                                        label = { Text(tag.name) },
+                                        leadingIcon = {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(10.dp)
+                                                    .clip(CircleShape)
+                                                    .background(tagPalette[tag.colorIndex % tagPalette.size])
+                                            )
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -529,20 +536,27 @@ private fun ActiveCardRow(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    card.tagIds.forEach { tagId ->
-                        val tag = tags.find { it.id == tagId } ?: return@forEach
-                        Spacer(Modifier.width(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(tagPalette[tag.colorIndex % tagPalette.size].copy(alpha = 0.2f))
-                                .padding(horizontal = 4.dp, vertical = 1.dp)
-                        ) {
-                            Text(
-                                text = tag.name,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = tagPalette[tag.colorIndex % tagPalette.size]
-                            )
+                }
+                val matchedTags = tags.filter { it.id in card.tagIds }
+                if (matchedTags.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        matchedTags.forEach { tag ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(tagPalette[tag.colorIndex % tagPalette.size].copy(alpha = 0.2f))
+                                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                            ) {
+                                Text(
+                                    text = tag.name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = tagPalette[tag.colorIndex % tagPalette.size]
+                                )
+                            }
                         }
                     }
                 }

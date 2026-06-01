@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -294,11 +295,12 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    tags.take(5).forEach { tag ->
+                    tags.forEach { tag ->
                         val selected = tag.id in cardTagIds
                         FilterChip(
                             selected = selected,
@@ -315,14 +317,6 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                                         .background(tagPalette[tag.colorIndex % tagPalette.size])
                                 )
                             }
-                        )
-                    }
-                    if (tags.size > 5) {
-                        Text(
-                            "+${tags.size - 5}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.align(Alignment.CenterVertically)
                         )
                     }
                 }
