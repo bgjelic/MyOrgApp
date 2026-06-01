@@ -14,6 +14,9 @@ import androidx.lifecycle.AndroidViewModel
 import java.util.Calendar
 import java.util.UUID
 import com.google.gson.Gson
+import com.google.gson.JsonArray
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -56,6 +59,8 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
     private var nextId = 0L
 
     init {
+        migrateRemindersPrefs("cards_json")
+        migrateRemindersPrefs("completed_cards_json")
         loadSettings()
         loadTags()
         val saved = loadFromPrefs()
@@ -78,6 +83,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         finished: Boolean = false,
         taskSetTimeStart: String? = null,
         taskSetTimeEnd: String? = null,
+        reminders: List<CardReminder> = emptyList(),
         reminderMinutesBefore: Int? = null,
         reminderCustomTime: String? = null,
         repeatType: RepeatType = RepeatType.NONE,
@@ -87,6 +93,11 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         checklist: List<ChecklistItem> = emptyList(),
         tagIds: List<String> = emptyList()
     ) {
+        val finalReminders = if (reminders.isNotEmpty()) reminders
+        else buildList {
+            if (reminderMinutesBefore != null) add(CardReminder(minutesBefore = reminderMinutesBefore))
+            if (reminderCustomTime != null) add(CardReminder(customTime = reminderCustomTime))
+        }
         val card = CardItem(
             id = nextId++,
             name = name,
@@ -96,8 +107,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             finished = finished,
             taskSetTimeStart = taskSetTimeStart,
             taskSetTimeEnd = taskSetTimeEnd,
-            reminderMinutesBefore = reminderMinutesBefore,
-            reminderCustomTime = reminderCustomTime,
+            reminders = finalReminders,
             repeatType = repeatType,
             repeatDaysOfWeek = repeatDaysOfWeek,
             repeatEndDate = repeatEndDate,
@@ -659,5 +669,40 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             .putInt("settings_default_reminder_hour", s.defaultReminderHour)
             .putInt("settings_default_reminder_minute", s.defaultReminderMinute)
             .apply()
+    }
+
+    private fun migrateRemindersPrefs(key: String) {
+        val json = prefs.getString(key, null) ?: return
+        if (!json.contains("reminderMinutesBefore")) return
+
+        val root: JsonElement = try {
+            gson.fromJson(json, JsonElement::class.java)
+        } catch (_: Exception) { return }
+        if (!root.isJsonArray) return
+
+        var changed = false
+        for (element in root.asJsonArray) {
+            val obj = element.asJsonObject
+            if (!obj.has("reminderMinutesBefore") && !obj.has("reminderCustomTime")) continue
+            val minutesBefore = if (obj.has("reminderMinutesBefore") && !obj.get("reminderMinutesBefore").isJsonNull)
+                obj.get("reminderMinutesBefore").asInt else null
+            val customTime = if (obj.has("reminderCustomTime") && !obj.get("reminderCustomTime").isJsonNull)
+                obj.get("reminderCustomTime").asString else null
+
+            val reminderObj = JsonObject()
+            if (minutesBefore != null) reminderObj.addProperty("minutesBefore", minutesBefore)
+            if (customTime != null) reminderObj.addProperty("customTime", customTime)
+            val remindersArray = JsonArray()
+            remindersArray.add(reminderObj)
+            obj.add("reminders", remindersArray)
+
+            obj.remove("reminderMinutesBefore")
+            obj.remove("reminderCustomTime")
+            changed = true
+        }
+
+        if (changed) {
+            prefs.edit().putString(key, gson.toJson(root)).apply()
+        }
     }
 }
