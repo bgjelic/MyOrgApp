@@ -592,7 +592,7 @@ fun MainScreen(
 
 
 
-}f
+}
 
 @Composable
 private fun ActiveCardRow(
