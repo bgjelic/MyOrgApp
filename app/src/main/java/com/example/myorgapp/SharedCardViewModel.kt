@@ -760,7 +760,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                         dateCompleted = null,
                         taskSetTimeStart = if (startTime != null) "${todayDate}T$startTime" else todayDate,
                         taskSetTimeEnd = if (endTime != null) "${todayDate}T$endTime" else null,
-                        checklist = emptyList()
+                        checklist = card.checklist.map { it.copy(checked = false) }
                     )
                     renewed.add(renewedCard)
                     scheduleReminder(renewedCard)
