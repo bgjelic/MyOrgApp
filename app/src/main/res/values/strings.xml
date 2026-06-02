@@ -84,8 +84,6 @@
     <string name="repeat">Repeat</string>
     <string name="repeat_none">None</string>
     <string name="repeat_daily">Daily</string>
-    <string name="repeat_weekdays">Weekdays</string>
-    <string name="repeat_weekends">Weekends</string>
     <string name="repeat_weekly">Weekly</string>
     <string name="repeat_monthly">Monthly</string>
     <string name="repeat_yearly">Yearly</string>

@@ -646,10 +646,15 @@ private fun ActiveCardRow(
                             )
                             if (card.repeatCompletionCount > 0) {
                                 val unit = when (card.repeatType) {
-                                    RepeatType.DAILY, RepeatType.WEEKDAYS, RepeatType.WEEKENDS, RepeatType.CUSTOM -> "days"
+                                    RepeatType.DAILY, RepeatType.WEEKDAYS, RepeatType.WEEKENDS -> "days"
                                     RepeatType.WEEKLY -> "weeks"
                                     RepeatType.MONTHLY -> "months"
                                     RepeatType.YEARLY -> "years"
+                                    RepeatType.CUSTOM -> when (card.repeatCustomFrequency) {
+                                        "monthly" -> "months"
+                                        "yearly" -> "years"
+                                        else -> "weeks"
+                                    }
                                     else -> ""
                                 }
                                 Text(
@@ -681,6 +686,8 @@ private fun ActiveCardRow(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                        }
+                    }
                 }
                 AnimatedVisibility(visible = checkExpanded.value) {
                     Column(
@@ -782,10 +789,15 @@ private fun CompletedCardRow(
 @Composable
 private fun CompletedRepeatRow(card: CardItem) {
     val unit = when (card.repeatType) {
-        RepeatType.DAILY, RepeatType.WEEKDAYS, RepeatType.WEEKENDS, RepeatType.CUSTOM -> "days"
+        RepeatType.DAILY, RepeatType.WEEKDAYS, RepeatType.WEEKENDS -> "days"
         RepeatType.WEEKLY -> "weeks"
         RepeatType.MONTHLY -> "months"
         RepeatType.YEARLY -> "years"
+        RepeatType.CUSTOM -> when (card.repeatCustomFrequency) {
+            "monthly" -> "months"
+            "yearly" -> "years"
+            else -> "weeks"
+        }
         else -> ""
     }
     Card(

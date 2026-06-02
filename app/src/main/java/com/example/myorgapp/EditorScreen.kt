@@ -120,10 +120,27 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     var showCustomReminderTimePicker by remember { mutableStateOf(false) }
     var tempCustomReminderDate by remember { mutableStateOf("") }
 
-    var repeatType by remember { mutableStateOf(editing?.repeatType ?: RepeatType.NONE) }
+    val initialFrequency = when (editing?.repeatType) {
+        RepeatType.MONTHLY -> "monthly"
+        RepeatType.YEARLY -> "yearly"
+        RepeatType.WEEKDAYS, RepeatType.WEEKENDS -> "weekly"
+        else -> editing?.repeatCustomFrequency ?: "weekly"
+    }
+    val initialDayOfMonth = editing?.repeatDayOfMonth ?: (editing?.let {
+        if (it.repeatType == RepeatType.MONTHLY) DateHelper.parseDate(it.dateCreated ?: DateHelper.todayDate()).get(Calendar.DAY_OF_MONTH)
+        else null
+    })
+    val initialMonth = editing?.repeatMonth ?: (editing?.let {
+        if (it.repeatType == RepeatType.YEARLY) (DateHelper.parseDate(it.dateCreated ?: DateHelper.todayDate()).get(Calendar.MONTH) + 1)
+        else null
+    })
+    var repeatType by remember { mutableStateOf(editing?.repeatType ?: RepeatType.DAILY) }
     var repeatDaysOfWeek by remember { mutableStateOf(editing?.repeatDaysOfWeek) }
     var repeatEndDate by remember { mutableStateOf(editing?.repeatEndDate ?: "") }
     var repeatSkipDates by remember { mutableStateOf(editing?.repeatSkipDates ?: "") }
+    var repeatCustomFrequency by remember { mutableStateOf(initialFrequency) }
+    var repeatDayOfMonth by remember { mutableStateOf(initialDayOfMonth ?: 1) }
+    var repeatMonth by remember { mutableStateOf(initialMonth ?: 1) }
 
     var showRepeatPicker by remember { mutableStateOf(false) }
     var showCustomRepeatDialog by remember { mutableStateOf(false) }
@@ -179,8 +196,6 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     val repeatLabel = stringResource(R.string.repeat)
     val repeatNoneLabel = stringResource(R.string.repeat_none)
     val repeatDailyLabel = stringResource(R.string.repeat_daily)
-    val repeatWeekdaysLabel = stringResource(R.string.repeat_weekdays)
-    val repeatWeekendsLabel = stringResource(R.string.repeat_weekends)
     val repeatWeeklyLabel = stringResource(R.string.repeat_weekly)
     val repeatMonthlyLabel = stringResource(R.string.repeat_monthly)
     val repeatYearlyLabel = stringResource(R.string.repeat_yearly)
@@ -208,10 +223,13 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             taskSetTimeStart = defaultStart
             taskSetTimeEnd = defaultEnd
             cardReminders = defaultReminders
-            repeatType = RepeatType.NONE
+            repeatType = RepeatType.DAILY
             repeatDaysOfWeek = null
             repeatEndDate = ""
             repeatSkipDates = ""
+            repeatCustomFrequency = "weekly"
+            repeatDayOfMonth = 1
+            repeatMonth = 1
             checklistItems = emptyList()
             newChecklistText = ""
             cardTagIds = emptyList()
@@ -221,10 +239,13 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             taskSetTimeStart = editing?.taskSetTimeStart ?: ""
             taskSetTimeEnd = editing?.taskSetTimeEnd ?: ""
             cardReminders = editing?.reminders ?: emptyList()
-            repeatType = editing?.repeatType ?: RepeatType.NONE
+            repeatType = editing?.repeatType ?: RepeatType.DAILY
             repeatDaysOfWeek = editing?.repeatDaysOfWeek
             repeatEndDate = editing?.repeatEndDate ?: ""
             repeatSkipDates = editing?.repeatSkipDates ?: ""
+            repeatCustomFrequency = editing?.repeatCustomFrequency ?: "weekly"
+            repeatDayOfMonth = editing?.repeatDayOfMonth ?: 1
+            repeatMonth = editing?.repeatMonth ?: 1
             checklistItems = editing?.checklist ?: emptyList()
             newChecklistText = ""
             cardTagIds = editing?.tagIds ?: emptyList()
@@ -252,7 +273,10 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 repeatEndDate = repeatEndDate.ifBlank { null },
                 repeatSkipDates = repeatSkipDates.ifBlank { null },
                 checklist = checklistItems,
-                tagIds = cardTagIds
+                tagIds = cardTagIds,
+                repeatCustomFrequency = repeatCustomFrequency,
+                repeatDayOfMonth = repeatDayOfMonth,
+                repeatMonth = repeatMonth
             )
         } else {
             val current = editing!!
@@ -267,7 +291,10 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 repeatEndDate = repeatEndDate.ifBlank { null },
                 repeatSkipDates = repeatSkipDates.ifBlank { null },
                 checklist = checklistItems,
-                tagIds = cardTagIds
+                tagIds = cardTagIds,
+                repeatCustomFrequency = repeatCustomFrequency,
+                repeatDayOfMonth = repeatDayOfMonth,
+                repeatMonth = repeatMonth
             )
             viewModel.updateCard(updated)
         }
@@ -338,6 +365,9 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                                 repeatDaysOfWeek = card.repeatDaysOfWeek
                                 repeatEndDate = card.repeatEndDate ?: ""
                                 repeatSkipDates = card.repeatSkipDates ?: ""
+                                repeatCustomFrequency = card.repeatCustomFrequency
+                                repeatDayOfMonth = card.repeatDayOfMonth ?: 1
+                                repeatMonth = card.repeatMonth ?: 1
                                 checklistItems = card.checklist
                                 cardTagIds = card.tagIds
                                 nameFocused = false
@@ -482,22 +512,54 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(4.dp))
-            OutlinedButton(onClick = { showRepeatPicker = true }) {
-                val text = if (repeatType == RepeatType.CUSTOM) {
-                    val dayCount = repeatDaysOfWeek?.size ?: 0
-                    if (dayCount > 0) "$repeatCustomLabel ($dayCount)"
-                    else repeatCustomLabel
-                } else when (repeatType) {
-                    RepeatType.NONE -> repeatNoneLabel
-                    RepeatType.DAILY -> repeatDailyLabel
-                    RepeatType.WEEKDAYS -> repeatWeekdaysLabel
-                    RepeatType.WEEKENDS -> repeatWeekendsLabel
-                    RepeatType.WEEKLY -> repeatWeeklyLabel
-                    RepeatType.MONTHLY -> repeatMonthlyLabel
-                    RepeatType.YEARLY -> repeatYearlyLabel
-                    else -> repeatNoneLabel
-                }
-                Text(text)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                FilterChip(
+                    selected = repeatType == RepeatType.DAILY,
+                    onClick = {
+                        repeatType = RepeatType.DAILY
+                        repeatDaysOfWeek = null
+                    },
+                    label = { Text(repeatDailyLabel) }
+                )
+                FilterChip(
+                    selected = repeatType == RepeatType.WEEKLY,
+                    onClick = {
+                        repeatType = RepeatType.WEEKLY
+                        repeatDaysOfWeek = null
+                    },
+                    label = { Text(repeatWeeklyLabel) }
+                )
+                FilterChip(
+                    selected = repeatType == RepeatType.CUSTOM,
+                    onClick = {
+                        if (repeatType != RepeatType.CUSTOM) {
+                            repeatType = RepeatType.CUSTOM
+                            repeatCustomFrequency = "weekly"
+                            repeatDaysOfWeek = null
+                            repeatDayOfMonth = 1
+                            repeatMonth = 1
+                        }
+                        showCustomRepeatDialog = true
+                    },
+                    label = {
+                        val txt = if (repeatType == RepeatType.CUSTOM) {
+                            when (repeatCustomFrequency) {
+                                "biweekly" -> "Every 2 weeks"
+                                "monthly" -> repeatMonthlyLabel
+                                "yearly" -> repeatYearlyLabel
+                                else -> {
+                                    val dayCount = repeatDaysOfWeek?.size ?: 0
+                                    if (dayCount > 0) "$repeatWeeklyLabel ($dayCount)"
+                                    else repeatWeeklyLabel
+                                }
+                            }
+                        } else repeatCustomLabel
+                        Text(txt)
+                    }
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -887,18 +949,13 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                     listOf(
                         RepeatType.NONE to repeatNoneLabel,
                         RepeatType.DAILY to repeatDailyLabel,
-                        RepeatType.WEEKDAYS to repeatWeekdaysLabel,
-                        RepeatType.WEEKENDS to repeatWeekendsLabel,
-                        RepeatType.WEEKLY to repeatWeeklyLabel,
-                        RepeatType.MONTHLY to repeatMonthlyLabel,
-                        RepeatType.YEARLY to repeatYearlyLabel
+                        RepeatType.WEEKLY to repeatWeeklyLabel
                     ).forEach { (value, label) ->
                         TextButton(
                             onClick = {
                                 repeatType = value
-                                if (value != RepeatType.CUSTOM) {
-                                    showRepeatPicker = false
-                                }
+                                repeatDaysOfWeek = null
+                                showRepeatPicker = false
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -908,6 +965,10 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                     TextButton(
                         onClick = {
                             repeatType = RepeatType.CUSTOM
+                            repeatCustomFrequency = "weekly"
+                            repeatDaysOfWeek = null
+                            repeatDayOfMonth = 1
+                            repeatMonth = 1
                             showRepeatPicker = false
                             showCustomRepeatDialog = true
                         },
@@ -926,48 +987,121 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     }
 
     if (showCustomRepeatDialog) {
-        var selectedDays by remember {
-            mutableStateOf(repeatDaysOfWeek ?: emptyList<Int>())
-        }
         val initialSkipDates = remember(repeatSkipDates) {
             decodeSkipDates(repeatSkipDates)
         }
+        var tempFrequency by remember { mutableStateOf(repeatCustomFrequency) }
+        var tempSelectedDays by remember {
+            mutableStateOf(repeatDaysOfWeek ?: emptyList<Int>())
+        }
+        var tempDayOfMonth by remember { mutableStateOf(repeatDayOfMonth ?: 1) }
+        var tempMonth by remember { mutableStateOf(repeatMonth ?: 1) }
         var tempSkipDates by remember { mutableStateOf(initialSkipDates) }
         var tempEndDate by remember { mutableStateOf(repeatEndDate) }
         var showEndDatePickerForCustom by remember { mutableStateOf(false) }
         var showSkipDatePickerForCustom by remember { mutableStateOf(false) }
+
+        val frequencies = listOf("weekly" to repeatWeeklyLabel, "biweekly" to "Every 2 weeks", "monthly" to repeatMonthlyLabel, "yearly" to repeatYearlyLabel)
 
         AlertDialog(
             onDismissRequest = { showCustomRepeatDialog = false },
             title = { Text(customRepeatTitleLabel) },
             text = {
                 Column {
-                    Text(repeatOnDaysLabel, style = MaterialTheme.typography.bodyMedium)
+                    Text("Frequency:", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(4.dp))
-
-                    val dayEntries = listOf(
-                        Calendar.MONDAY to dayMonLabel,
-                        Calendar.TUESDAY to dayTueLabel,
-                        Calendar.WEDNESDAY to dayWedLabel,
-                        Calendar.THURSDAY to dayThuLabel,
-                        Calendar.FRIDAY to dayFriLabel,
-                        Calendar.SATURDAY to daySatLabel,
-                        Calendar.SUNDAY to daySunLabel
-                    )
-                    dayEntries.forEach { (dayValue, dayLabel) ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = dayValue in selectedDays,
-                                onCheckedChange = { checked ->
-                                    selectedDays = if (checked) {
-                                        selectedDays + dayValue
-                                    } else {
-                                        selectedDays - dayValue
-                                    }
-                                }
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        frequencies.forEach { (value, label) ->
+                            FilterChip(
+                                selected = tempFrequency == value,
+                                onClick = { tempFrequency = value },
+                                label = { Text(label) }
                             )
-                            Spacer(Modifier.width(4.dp))
-                            Text(dayLabel)
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(8.dp))
+
+                    if (tempFrequency == "weekly" || tempFrequency == "biweekly") {
+                        Text(repeatOnDaysLabel, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(4.dp))
+                        val dayEntries = listOf(
+                            Calendar.MONDAY to dayMonLabel,
+                            Calendar.TUESDAY to dayTueLabel,
+                            Calendar.WEDNESDAY to dayWedLabel,
+                            Calendar.THURSDAY to dayThuLabel,
+                            Calendar.FRIDAY to dayFriLabel,
+                            Calendar.SATURDAY to daySatLabel,
+                            Calendar.SUNDAY to daySunLabel
+                        )
+                        dayEntries.forEach { (dayValue, dayLabel) ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = dayValue in tempSelectedDays,
+                                    onCheckedChange = { checked ->
+                                        tempSelectedDays = if (checked) {
+                                            tempSelectedDays + dayValue
+                                        } else {
+                                            tempSelectedDays - dayValue
+                                        }
+                                    }
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(dayLabel)
+                            }
+                        }
+                    } else if (tempFrequency == "monthly") {
+                        Text("Day of month:", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(onClick = {
+                                tempDayOfMonth = maxOf(1, tempDayOfMonth - 1)
+                            }) { Text("-") }
+                            Spacer(Modifier.width(8.dp))
+                            Text("$tempDayOfMonth", style = MaterialTheme.typography.bodyLarge)
+                            Spacer(Modifier.width(8.dp))
+                            OutlinedButton(onClick = {
+                                tempDayOfMonth = minOf(31, tempDayOfMonth + 1)
+                            }) { Text("+") }
+                        }
+                    } else if (tempFrequency == "yearly") {
+                        Text("Month:", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(4.dp))
+                        val months = listOf(
+                            1 to "Jan", 2 to "Feb", 3 to "Mar", 4 to "Apr",
+                            5 to "May", 6 to "Jun", 7 to "Jul", 8 to "Aug",
+                            9 to "Sep", 10 to "Oct", 11 to "Nov", 12 to "Dec"
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            months.forEach { (m, label) ->
+                                FilterChip(
+                                    selected = tempMonth == m,
+                                    onClick = { tempMonth = m },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text("Day of month:", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedButton(onClick = {
+                                tempDayOfMonth = maxOf(1, tempDayOfMonth - 1)
+                            }) { Text("-") }
+                            Spacer(Modifier.width(8.dp))
+                            Text("$tempDayOfMonth", style = MaterialTheme.typography.bodyLarge)
+                            Spacer(Modifier.width(8.dp))
+                            OutlinedButton(onClick = {
+                                tempDayOfMonth = minOf(31, tempDayOfMonth + 1)
+                            }) { Text("+") }
                         }
                     }
 
@@ -1009,19 +1143,36 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             },
             confirmButton = {
                 TextButton(onClick = {
-                    if (selectedDays.isNotEmpty()) {
-                        repeatDaysOfWeek = selectedDays
-                        repeatType = RepeatType.CUSTOM
-                        repeatEndDate = tempEndDate
-                        repeatSkipDates = if (tempSkipDates.isEmpty()) "" else encodeSkipDates(tempSkipDates)
+                    repeatCustomFrequency = tempFrequency
+                    when (tempFrequency) {
+                        "monthly" -> {
+                            repeatDayOfMonth = tempDayOfMonth
+                            repeatDaysOfWeek = null
+                            repeatMonth = null
+                        }
+                        "yearly" -> {
+                            repeatDayOfMonth = tempDayOfMonth
+                            repeatMonth = tempMonth
+                            repeatDaysOfWeek = null
+                        }
+                        else -> {
+                            if (tempSelectedDays.isNotEmpty()) {
+                                repeatDaysOfWeek = tempSelectedDays
+                            }
+                            repeatDayOfMonth = null
+                            repeatMonth = null
+                        }
                     }
+                    repeatType = RepeatType.CUSTOM
+                    repeatEndDate = tempEndDate
+                    repeatSkipDates = if (tempSkipDates.isEmpty()) "" else encodeSkipDates(tempSkipDates)
                     showCustomRepeatDialog = false
                 }) { Text(okLabel) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     if (repeatDaysOfWeek == null || repeatDaysOfWeek!!.isEmpty()) {
-                        repeatType = RepeatType.NONE
+                        repeatType = RepeatType.DAILY
                     }
                     showCustomRepeatDialog = false
                 }) { Text(cancelLabel) }

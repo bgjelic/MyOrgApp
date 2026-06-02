@@ -194,14 +194,18 @@ object DateHelper {
         repeatType: RepeatType,
         daysOfWeek: List<Int>?,
         skipDates: List<String>?,
-        endDate: String?
+        endDate: String?,
+        createdDate: String? = null,
+        repeatCustomFrequency: String? = null,
+        repeatDayOfMonth: Int? = null,
+        repeatMonth: Int? = null
     ): String? {
         if (repeatType == RepeatType.NONE) return null
 
         if (endDate != null && currentDate >= endDate) return null
 
         val cal = parseDate(currentDate)
-        val nextDate: String
+        var nextDate: String
 
         when (repeatType) {
             RepeatType.DAILY -> {
@@ -233,28 +237,55 @@ object DateHelper {
                 nextDate = formatDate(cal)
             }
             RepeatType.CUSTOM -> {
-                if (daysOfWeek.isNullOrEmpty()) return null
-                val sortedDays = daysOfWeek.sorted()
-                val currentDow = cal.get(Calendar.DAY_OF_WEEK)
-                var found: Int? = null
-                for (day in sortedDays) {
-                    if (day > currentDow) {
-                        found = day
-                        break
+                when (repeatCustomFrequency) {
+                    "monthly" -> {
+                        cal.add(Calendar.MONTH, 1)
+                        val day = repeatDayOfMonth ?: cal.get(Calendar.DAY_OF_MONTH)
+                        val maxDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+                        cal.set(Calendar.DAY_OF_MONTH, minOf(day, maxDay))
+                        nextDate = formatDate(cal)
+                    }
+                    "yearly" -> {
+                        cal.add(Calendar.YEAR, 1)
+                        val day = repeatDayOfMonth ?: cal.get(Calendar.DAY_OF_MONTH)
+                        val monthParam = repeatMonth ?: (cal.get(Calendar.MONTH) + 1)
+                        cal.set(Calendar.MONTH, monthParam - 1)
+                        val maxDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+                        cal.set(Calendar.DAY_OF_MONTH, minOf(day, maxDay))
+                        nextDate = formatDate(cal)
+                    }
+                    else -> {
+                        if (daysOfWeek.isNullOrEmpty()) return null
+                        val sortedDays = daysOfWeek.sorted()
+                        val currentDow = cal.get(Calendar.DAY_OF_WEEK)
+                        var found: Int? = null
+                        for (day in sortedDays) {
+                            if (day > currentDow) {
+                                found = day
+                                break
+                            }
+                        }
+                        if (found != null) {
+                            cal.add(Calendar.DAY_OF_MONTH, found - currentDow)
+                        } else {
+                            cal.add(Calendar.DAY_OF_MONTH, (7 - currentDow) + sortedDays.first())
+                        }
+                        nextDate = formatDate(cal)
+                        if (repeatCustomFrequency == "biweekly" && createdDate != null) {
+                            val createdCal = parseDate(createdDate)
+                            if ((daysBetween(createdCal, parseDate(nextDate)) / 7) % 2 != 0L) {
+                                cal.add(Calendar.DAY_OF_MONTH, 7)
+                                nextDate = formatDate(cal)
+                            }
+                        }
                     }
                 }
-                if (found != null) {
-                    cal.add(Calendar.DAY_OF_MONTH, found - currentDow)
-                } else {
-                    cal.add(Calendar.DAY_OF_MONTH, (7 - currentDow) + sortedDays.first())
-                }
-                nextDate = formatDate(cal)
             }
             RepeatType.NONE -> return null
         }
 
         if (skipDates != null && nextDate in skipDates) {
-            return computeNextDate(nextDate, repeatType, daysOfWeek, skipDates, endDate)
+            return computeNextDate(nextDate, repeatType, daysOfWeek, skipDates, endDate, createdDate, repeatCustomFrequency, repeatDayOfMonth, repeatMonth)
         }
 
         if (endDate != null && nextDate > endDate) return null
@@ -268,7 +299,10 @@ object DateHelper {
         createdDate: String,
         daysOfWeek: List<Int>?,
         endDate: String?,
-        skipDates: List<String>?
+        skipDates: List<String>?,
+        repeatCustomFrequency: String? = null,
+        repeatDayOfMonth: Int? = null,
+        repeatMonth: Int? = null
     ): Boolean {
         if (repeatType == RepeatType.NONE) return false
 
@@ -303,7 +337,26 @@ object DateHelper {
                 dateCal.get(Calendar.DAY_OF_MONTH) == createdCal.get(Calendar.DAY_OF_MONTH)
             }
             RepeatType.CUSTOM -> {
-                daysOfWeek?.contains(dateCal.get(Calendar.DAY_OF_WEEK)) == true
+                when (repeatCustomFrequency) {
+                    "biweekly" -> {
+                        val dow = dateCal.get(Calendar.DAY_OF_WEEK)
+                        daysOfWeek?.contains(dow) == true &&
+                        (daysBetween(createdCal, dateCal) / 7) % 2 == 0L
+                    }
+                    "monthly" -> {
+                        val day = repeatDayOfMonth ?: createdCal.get(Calendar.DAY_OF_MONTH)
+                        dateCal.get(Calendar.DAY_OF_MONTH) == day
+                    }
+                    "yearly" -> {
+                        val day = repeatDayOfMonth ?: createdCal.get(Calendar.DAY_OF_MONTH)
+                        val month = repeatMonth ?: (createdCal.get(Calendar.MONTH) + 1)
+                        dateCal.get(Calendar.MONTH) + 1 == month &&
+                        dateCal.get(Calendar.DAY_OF_MONTH) == day
+                    }
+                    else -> {
+                        daysOfWeek?.contains(dateCal.get(Calendar.DAY_OF_WEEK)) == true
+                    }
+                }
             }
             RepeatType.NONE -> false
         }

@@ -154,7 +154,10 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         repeatEndDate: String? = null,
         repeatSkipDates: String? = null,
         checklist: List<ChecklistItem> = emptyList(),
-        tagIds: List<String> = emptyList()
+        tagIds: List<String> = emptyList(),
+        repeatCustomFrequency: String = "weekly",
+        repeatDayOfMonth: Int? = null,
+        repeatMonth: Int? = null
     ) {
         val finalReminders = if (reminders.isNotEmpty()) reminders
         else buildList {
@@ -176,7 +179,10 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             repeatEndDate = repeatEndDate,
             repeatSkipDates = repeatSkipDates,
             checklist = checklist,
-            tagIds = tagIds
+            tagIds = tagIds,
+            repeatCustomFrequency = repeatCustomFrequency,
+            repeatDayOfMonth = repeatDayOfMonth,
+            repeatMonth = repeatMonth
         )
         _cards.update { it + card }
         scheduleReminder(card)
@@ -296,7 +302,10 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                     createdDate = createdDate,
                     daysOfWeek = card.repeatDaysOfWeek,
                     endDate = card.repeatEndDate,
-                    skipDates = parseSkipDates(card.repeatSkipDates)
+                    skipDates = parseSkipDates(card.repeatSkipDates),
+                    repeatCustomFrequency = card.repeatCustomFrequency,
+                    repeatDayOfMonth = card.repeatDayOfMonth,
+                    repeatMonth = card.repeatMonth
                 )
             ) {
                 val isFinished = card.finished && card.dateCompleted == dateStr
@@ -345,7 +354,10 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                             createdDate = createdDate,
                             daysOfWeek = card.repeatDaysOfWeek,
                             endDate = card.repeatEndDate,
-                            skipDates = parseSkipDates(card.repeatSkipDates)
+                            skipDates = parseSkipDates(card.repeatSkipDates),
+                            repeatCustomFrequency = card.repeatCustomFrequency,
+                            repeatDayOfMonth = card.repeatDayOfMonth,
+                            repeatMonth = card.repeatMonth
                         )
                     ) {
                         datesInWeek.add(day)
@@ -415,7 +427,10 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
                             createdDate = createdDate,
                             daysOfWeek = card.repeatDaysOfWeek,
                             endDate = card.repeatEndDate,
-                            skipDates = parseSkipDates(card.repeatSkipDates)
+                            skipDates = parseSkipDates(card.repeatSkipDates),
+                            repeatCustomFrequency = card.repeatCustomFrequency,
+                            repeatDayOfMonth = card.repeatDayOfMonth,
+                            repeatMonth = card.repeatMonth
                         )
                     ) {
                         datesInMonth.add(day)
