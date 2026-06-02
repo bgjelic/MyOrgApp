@@ -1,5 +1,10 @@
 package com.example.myorgapp
 
+data class FeedbackEntry(
+    val date: String,
+    val priority: Int
+)
+
 data class CardItem(
     val id: Long = 0L,
     val name: String = "",
@@ -19,5 +24,9 @@ data class CardItem(
     val repeatDayOfMonth: Int? = null,
     val repeatMonth: Int? = null,
     val checklist: List<ChecklistItem> = emptyList(),
-    val tagIds: List<String> = emptyList()
+    val tagIds: List<String> = emptyList(),
+    val priority: Int = 0,
+    val snoozed: Boolean = false,
+    val trashed: Boolean = false,
+    val feedbackHistory: List<FeedbackEntry> = emptyList()
 )

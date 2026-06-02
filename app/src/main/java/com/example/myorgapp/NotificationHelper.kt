@@ -13,9 +13,6 @@ object NotificationHelper {
     const val EXTRA_CARD_NAME = "card_name"
     const val EXTRA_CARD_DESC = "card_desc"
     const val EXTRA_NOTIFICATION_ID = "notif_id"
-    const val ACTION_DONE_SILENT = "DONE_SILENT"
-    private const val DONE_REQUEST_BASE = 10000
-
     fun createReminderNotificationChannel(context: Context) {
         val channel = NotificationChannel(
             CHANNEL_ID,
@@ -40,17 +37,6 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val doneIntent = Intent(context, ReminderReceiver::class.java).apply {
-            action = ACTION_DONE_SILENT
-            putExtra(EXTRA_CARD_ID, card.id)
-            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-        }
-        val doneRequestCode = DONE_REQUEST_BASE + (notificationId % 100000)
-        val donePendingIntent = PendingIntent.getBroadcast(
-            context, doneRequestCode, doneIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val body = buildString {
             append(card.name)
             if (!card.description.isNullOrBlank()) {
@@ -66,7 +52,6 @@ object NotificationHelper {
             .setContentText(card.description ?: "Card reminder")
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(pendingIntent)
-            .addAction(R.drawable.ic_notification_bell, "Done", donePendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()

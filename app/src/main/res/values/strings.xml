@@ -31,6 +31,7 @@
     <string name="tasks">Tasks</string>
     <string name="active">Active</string>
     <string name="completed_tab">Completed</string>
+    <string name="history_tab">History</string>
     <string name="no_active_cards">No active cards</string>
     <string name="no_completed_cards">No completed cards</string>
     <string name="add_card">Add card</string>

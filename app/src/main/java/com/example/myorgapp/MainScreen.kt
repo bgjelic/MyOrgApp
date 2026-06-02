@@ -36,7 +36,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material3.AlertDialog
@@ -161,6 +161,12 @@ fun MainScreen(
     val cardOrder by viewModel.cardOrder.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
+    var showFeedbackDialog by remember { mutableStateOf(false) }
+    var feedbackCard by remember { mutableStateOf<CardItem?>(null) }
+    fun handleCheckmarkTap(card: CardItem) {
+        feedbackCard = card
+        showFeedbackDialog = true
+    }
 
     val filteredCards = remember(cards, tagFilter, searchQuery) {
         cards
@@ -176,9 +182,8 @@ fun MainScreen(
     val tasksLabel = stringResource(R.string.tasks)
     val activeLabel = stringResource(R.string.active)
     val completedTabLabel = stringResource(R.string.completed_tab)
+    val historyLabel = stringResource(R.string.history_tab)
     val noActiveCardsLabel = stringResource(R.string.no_active_cards)
-    val noCompletedCardsLabel = stringResource(R.string.no_completed_cards)
-
     val highlightedCardId by viewModel.highlightedCardId.collectAsState()
     LaunchedEffect(highlightedCardId) {
         if (highlightedCardId != null) {
@@ -212,11 +217,11 @@ fun MainScreen(
                         Icon(
                             Icons.Default.Settings,
                             contentDescription = stringResource(R.string.content_desc_settings)
-                        )
-                    }
-                }
-            )
-        },
+                )
+            }
+        }
+    )
+    },
         floatingActionButton = {
             if (selectedTab == 0) {
                 FloatingActionButton(onClick = onAdd) { Text("+") }
@@ -237,7 +242,7 @@ fun MainScreen(
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text(completedTabLabel) }
+                    text = { Text(historyLabel) }
                 )
             }
             when (selectedTab) {
@@ -262,7 +267,7 @@ fun MainScreen(
                                     DateHelper.getDatePart(card.taskSetTimeStart) == today -> 1L
                                     else -> 2L
                                 }
-                            }.thenBy { it.taskSetTimeStart })
+                            }.thenBy { it.taskSetTimeStart }.thenByDescending { it.priority })
                         }
                     }
 
@@ -369,16 +374,16 @@ fun MainScreen(
                                             modifier = Modifier.size(20.dp)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Sort,
+                                                imageVector = Icons.AutoMirrored.Filled.Sort,
                                                 contentDescription = if (sortMode == "auto") "Switch to custom order" else "Switch to auto sort",
                                                 modifier = Modifier.size(16.dp),
                                                 tint = if (sortMode == "custom") MaterialTheme.colorScheme.primary
                                                 else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                )
+            }
+        }
+    }
+}
                             items(sortedCards) { card ->
                                 val overdueInfo = remember(card) { getOverdueInfo(card) }
                                 ActiveCardRow(
@@ -390,7 +395,7 @@ fun MainScreen(
                                         viewModel.setHighlightedCardId(null)
                                         onEdit(card)
                                     },
-                                    onToggleFinished = { onToggleFinished(card) },
+                                    onToggleFinished = { handleCheckmarkTap(card) },
                                     onDelete = { onDelete(card.id) },
                                     onToggleChecklistItem = { itemId -> viewModel.toggleChecklistItem(card.id, itemId) },
                                     onMoveUp = { viewModel.moveCardUp(card.id) },
@@ -402,16 +407,20 @@ fun MainScreen(
                     }
                 }
                  1 -> {
+                    val snoozedCards by viewModel.snoozedCards.collectAsState()
+                    val trashedCards by viewModel.trashedCards.collectAsState()
                     val completedRepeats = remember(cards) { cards.filter { it.repeatType != RepeatType.NONE && it.repeatCompletionCount > 0 } }
                     val hasRegular = completedCards.isNotEmpty()
                     val hasRepeats = completedRepeats.isNotEmpty()
+                    val hasSnoozed = snoozedCards.isNotEmpty()
+                    val hasTrashed = trashedCards.isNotEmpty()
 
-                    if (!hasRegular && !hasRepeats) {
+                    if (!hasRegular && !hasRepeats && !hasSnoozed && !hasTrashed) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(noCompletedCardsLabel)
+                            Text("No history")
                         }
                     } else {
                         LazyColumn(
@@ -454,6 +463,42 @@ fun MainScreen(
                                 }
                                 items(completedRepeats) { card ->
                                     CompletedRepeatRow(card = card)
+                                }
+                            }
+                            if (hasSnoozed) {
+                                item {
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = "Snoozed",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                                    )
+                                }
+                                items(snoozedCards) { card ->
+                                    SnoozedCardRow(
+                                        card = card,
+                                        onRestore = { viewModel.unsnoozeCard(card.id) },
+                                        onDelete = { viewModel.trashSnoozedCard(card.id) }
+                                    )
+                                }
+                            }
+                            if (hasTrashed) {
+                                item {
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = "Trash",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                                    )
+                                }
+                                items(trashedCards) { card ->
+                                    TrashCardRow(
+                                        card = card,
+                                        onRestore = { viewModel.restoreFromTrash(card.id) },
+                                        onDelete = { viewModel.permanentlyDeleteFromTrash(card.id) }
+                                    )
                                 }
                             }
                         }
@@ -502,7 +547,52 @@ fun MainScreen(
             }
         )
     }
-}
+
+    if (showFeedbackDialog && feedbackCard != null) {
+        val card = feedbackCard!!
+        AlertDialog(
+            onDismissRequest = { showFeedbackDialog = false },
+            title = { Text(card.name) },
+            text = {
+                Column {
+                    listOf(
+                        3 to "[★★★] [3] New level (Good)",
+                        2 to "[★★] [2] Normal (Disciplined)",
+                        1 to "[★] [1] Minimum (Lazy)",
+                        0 to "[!] [0] Made it work (Happens)",
+                        -1 to "[!] [-1] Time got me (Fix it)",
+                        -2 to "[!!] [-2] Weak planning",
+                        -3 to "[!!!] [-3] Give up (Archive)"
+                    ).forEach { (value, label) ->
+                        TextButton(
+                            onClick = {
+                                val today = DateHelper.todayDate()
+                                val updated = card.copy(
+                                    priority = value,
+                                    feedbackHistory = card.feedbackHistory + FeedbackEntry(today, value)
+                                )
+                                viewModel.updateCard(updated)
+                                viewModel.toggleFinished(updated)
+                                showFeedbackDialog = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(label, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showFeedbackDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+
+
+}f
 
 @Composable
 private fun ActiveCardRow(
@@ -589,6 +679,44 @@ private fun ActiveCardRow(
                             text = "($overdueText) ",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    when (card.priority) {
+                        3 -> Text(
+                            text = "★★★ ",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        2 -> Text(
+                            text = "★★ ",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        1 -> Text(
+                            text = "★ ",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        -1 -> Text(
+                            text = "! ",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        -2 -> Text(
+                            text = "!! ",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        -3 -> Text(
+                            text = "!!! ",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                         )
                     }
                     Text(
@@ -764,7 +892,17 @@ private fun CompletedCardRow(
                     .weight(1f)
                     .padding(vertical = 12.dp)
             ) {
-                Text(text = card.name, style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    when (card.priority) {
+                        3 -> Text(text = "★★★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        2 -> Text(text = "★★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        1 -> Text(text = "★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -1 -> Text(text = "! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -2 -> Text(text = "!! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -3 -> Text(text = "!!! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    }
+                    Text(text = card.name, style = MaterialTheme.typography.titleMedium)
+                }
                 Spacer(Modifier.height(2.dp))
                 Text(text = card.description, style = MaterialTheme.typography.bodyMedium)
                 if (card.dateCompleted != null) {
@@ -822,13 +960,127 @@ private fun CompletedRepeatRow(card: CardItem) {
                     .weight(1f)
                     .padding(vertical = 12.dp)
             ) {
-                Text(text = card.name, style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    when (card.priority) {
+                        3 -> Text(text = "★★★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        2 -> Text(text = "★★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        1 -> Text(text = "★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -1 -> Text(text = "! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -2 -> Text(text = "!! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -3 -> Text(text = "!!! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    }
+                    Text(text = card.name, style = MaterialTheme.typography.titleMedium)
+                }
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = "×${card.repeatCompletionCount} $unit",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SnoozedCardRow(
+    card: CardItem,
+    onRestore: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .padding(end = 12.dp)
+                    .size(24.dp)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    when (card.priority) {
+                        3 -> Text(text = "★★★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        2 -> Text(text = "★★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        1 -> Text(text = "★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -1 -> Text(text = "! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -2 -> Text(text = "!! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -3 -> Text(text = "!!! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    }
+                    Text(text = card.name, style = MaterialTheme.typography.titleMedium)
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(text = card.description, style = MaterialTheme.typography.bodyMedium)
+            }
+            IconButton(onClick = onRestore) {
+                Icon(Icons.Default.ArrowUpward, contentDescription = "Restore")
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.content_desc_delete))
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrashCardRow(
+    card: CardItem,
+    onRestore: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .padding(end = 12.dp)
+                    .size(24.dp)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    when (card.priority) {
+                        3 -> Text(text = "★★★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        2 -> Text(text = "★★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        1 -> Text(text = "★ ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -1 -> Text(text = "! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -2 -> Text(text = "!! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        -3 -> Text(text = "!!! ", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    }
+                    Text(text = card.name, style = MaterialTheme.typography.titleMedium)
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(text = card.description, style = MaterialTheme.typography.bodyMedium)
+            }
+            IconButton(onClick = onRestore) {
+                Icon(Icons.Default.ArrowUpward, contentDescription = "Restore")
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Permanently delete")
             }
         }
     }

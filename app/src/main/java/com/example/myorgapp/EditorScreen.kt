@@ -139,8 +139,8 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     var repeatEndDate by remember { mutableStateOf(editing?.repeatEndDate ?: "") }
     var repeatSkipDates by remember { mutableStateOf(editing?.repeatSkipDates ?: "") }
     var repeatCustomFrequency by remember { mutableStateOf(initialFrequency) }
-    var repeatDayOfMonth by remember { mutableStateOf(initialDayOfMonth ?: 1) }
-    var repeatMonth by remember { mutableStateOf(initialMonth ?: 1) }
+    var repeatDayOfMonth by remember { mutableStateOf<Int?>(initialDayOfMonth ?: 1) }
+    var repeatMonth by remember { mutableStateOf<Int?>(initialMonth ?: 1) }
 
     var showRepeatPicker by remember { mutableStateOf(false) }
     var showCustomRepeatDialog by remember { mutableStateOf(false) }
@@ -153,6 +153,8 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     var showCreateTagDialog by remember { mutableStateOf(false) }
     var newTagName by remember { mutableStateOf("") }
     var newTagColorIndex by remember { mutableStateOf(0) }
+
+    var priority by remember { mutableStateOf(maxOf(editing?.priority ?: 0, 0)) }
 
     val existingCards by viewModel.cards.collectAsState()
     val completedCards by viewModel.completedCards.collectAsState()
@@ -233,6 +235,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             checklistItems = emptyList()
             newChecklistText = ""
             cardTagIds = emptyList()
+            priority = 0
         } else {
             name = editing?.name ?: ""
             description = editing?.description ?: ""
@@ -249,6 +252,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             checklistItems = editing?.checklist ?: emptyList()
             newChecklistText = ""
             cardTagIds = editing?.tagIds ?: emptyList()
+            priority = editing?.priority ?: 0
         }
     }
 
@@ -274,6 +278,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 repeatSkipDates = repeatSkipDates.ifBlank { null },
                 checklist = checklistItems,
                 tagIds = cardTagIds,
+                priority = priority,
                 repeatCustomFrequency = repeatCustomFrequency,
                 repeatDayOfMonth = repeatDayOfMonth,
                 repeatMonth = repeatMonth
@@ -292,6 +297,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 repeatSkipDates = repeatSkipDates.ifBlank { null },
                 checklist = checklistItems,
                 tagIds = cardTagIds,
+                priority = priority,
                 repeatCustomFrequency = repeatCustomFrequency,
                 repeatDayOfMonth = repeatDayOfMonth,
                 repeatMonth = repeatMonth
@@ -360,6 +366,7 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                                 description = card.description
                                 taskSetTimeStart = card.taskSetTimeStart ?: ""
                                 taskSetTimeEnd = card.taskSetTimeEnd ?: ""
+                                priority = 0
                                 cardReminders = card.reminders
                                 repeatType = card.repeatType
                                 repeatDaysOfWeek = card.repeatDaysOfWeek
@@ -434,6 +441,47 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 showCreateTagDialog = true
             }) {
                 Text("+ Create tag", style = MaterialTheme.typography.bodySmall)
+            }
+
+            if (editing != null && (editing?.priority ?: 0) < 0) {
+                val warningText = when (editing?.priority) {
+                    -1 -> "This card was auto-rescheduled (1 day overdue)"
+                    -2 -> "This card needs a new date/time (overdue 2-7 days)"
+                    -3 -> "This card was auto-snoozed (overdue 7+ days)"
+                    else -> "This card has a pending action"
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = warningText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Priority Goal:",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf(
+                    0 to "! Made it work",
+                    1 to "★ Minimum (Lazy)",
+                    2 to "★★ Normal (Disciplined)",
+                    3 to "★★★ New level (Good)"
+                ).forEach { (value, label) ->
+                    FilterChip(
+                        selected = priority == value,
+                        onClick = { priority = value },
+                        label = { Text(label) }
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
