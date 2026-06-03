@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -150,7 +151,8 @@ fun MainScreen(
     onToggleFinished: (CardItem) -> Unit,
     onDeleteCompleted: (Long) -> Unit,
     onSettings: () -> Unit,
-    onCalendar: () -> Unit
+    onCalendar: () -> Unit,
+    onStats: () -> Unit
 ) {
     val cards by viewModel.cards.collectAsState()
     val completedCards by viewModel.completedCards.collectAsState()
@@ -173,9 +175,9 @@ fun MainScreen(
             .filter { card -> tagFilter == null || card.tagIds.contains(tagFilter) }
             .filter { card ->
                 searchQuery.isBlank() ||
-                card.name.contains(searchQuery, ignoreCase = true) ||
-                card.description.contains(searchQuery, ignoreCase = true) ||
-                card.checklist.any { it.text.contains(searchQuery, ignoreCase = true) }
+                        card.name.contains(searchQuery, ignoreCase = true) ||
+                        card.description.contains(searchQuery, ignoreCase = true) ||
+                        card.checklist.any { it.text.contains(searchQuery, ignoreCase = true) }
             }
     }
 
@@ -213,15 +215,21 @@ fun MainScreen(
                             contentDescription = stringResource(R.string.content_desc_calendar)
                         )
                     }
+                    IconButton(onClick = onStats) {
+                        Icon(
+                            Icons.Default.Leaderboard,
+                            contentDescription = stringResource(R.string.content_desc_stats)
+                        )
+                    }
                     IconButton(onClick = onSettings) {
                         Icon(
                             Icons.Default.Settings,
                             contentDescription = stringResource(R.string.content_desc_settings)
-                )
-            }
-        }
-    )
-    },
+                        )
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             if (selectedTab == 0) {
                 FloatingActionButton(onClick = onAdd) { Text("+") }
@@ -253,10 +261,12 @@ fun MainScreen(
                         completedCards.filter { it.dateCompleted == today }
                     }
                     val totalToday = todayCards.size + todayCompletedFromCompleted.size
-                    val completedToday = todayCards.count { it.finished } + todayCompletedFromCompleted.size
+                    val completedToday =
+                        todayCards.count { it.finished } + todayCompletedFromCompleted.size
                     val sortedCards = remember(filteredCards, sortMode, cardOrder) {
                         if (sortMode == "custom") {
-                            val orderMap = cardOrder.withIndex().associate { (idx, id) -> id to idx }
+                            val orderMap =
+                                cardOrder.withIndex().associate { (idx, id) -> id to idx }
                             filteredCards.sortedBy { orderMap[it.id] ?: Int.MAX_VALUE }
                         } else {
                             filteredCards.sortedWith(compareBy<CardItem> { card ->
@@ -379,11 +389,11 @@ fun MainScreen(
                                                 modifier = Modifier.size(16.dp),
                                                 tint = if (sortMode == "custom") MaterialTheme.colorScheme.primary
                                                 else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             items(sortedCards) { card ->
                                 val overdueInfo = remember(card) { getOverdueInfo(card) }
                                 ActiveCardRow(
@@ -397,7 +407,12 @@ fun MainScreen(
                                     },
                                     onToggleFinished = { handleCheckmarkTap(card) },
                                     onDelete = { onDelete(card.id) },
-                                    onToggleChecklistItem = { itemId -> viewModel.toggleChecklistItem(card.id, itemId) },
+                                    onToggleChecklistItem = { itemId ->
+                                        viewModel.toggleChecklistItem(
+                                            card.id,
+                                            itemId
+                                        )
+                                    },
                                     onMoveUp = { viewModel.moveCardUp(card.id) },
                                     onMoveDown = { viewModel.moveCardDown(card.id) },
                                     showReorderButtons = sortMode == "custom"
@@ -406,10 +421,12 @@ fun MainScreen(
                         }
                     }
                 }
-                 1 -> {
+
+                1 -> {
                     val snoozedCards by viewModel.snoozedCards.collectAsState()
                     val trashedCards by viewModel.trashedCards.collectAsState()
-                    val completedRepeats = remember(cards) { cards.filter { it.repeatType != RepeatType.NONE && it.repeatCompletionCount > 0 } }
+                    val completedRepeats =
+                        remember(cards) { cards.filter { it.repeatType != RepeatType.NONE && it.repeatCompletionCount > 0 } }
                     val hasRegular = completedCards.isNotEmpty()
                     val hasRepeats = completedRepeats.isNotEmpty()
                     val hasSnoozed = snoozedCards.isNotEmpty()
@@ -434,7 +451,10 @@ fun MainScreen(
                                         text = stringResource(R.string.completed_tab),
                                         style = MaterialTheme.typography.titleSmall,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                                        modifier = Modifier.padding(
+                                            vertical = 8.dp,
+                                            horizontal = 4.dp
+                                        )
                                     )
                                     Text(
                                         text = "(click to restore)",
@@ -458,7 +478,10 @@ fun MainScreen(
                                         text = "Completed Repeats",
                                         style = MaterialTheme.typography.titleSmall,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                                        modifier = Modifier.padding(
+                                            vertical = 8.dp,
+                                            horizontal = 4.dp
+                                        )
                                     )
                                 }
                                 items(completedRepeats) { card ->
@@ -472,7 +495,10 @@ fun MainScreen(
                                         text = "Snoozed",
                                         style = MaterialTheme.typography.titleSmall,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                                        modifier = Modifier.padding(
+                                            vertical = 8.dp,
+                                            horizontal = 4.dp
+                                        )
                                     )
                                 }
                                 items(snoozedCards) { card ->
@@ -490,7 +516,10 @@ fun MainScreen(
                                         text = "Trash",
                                         style = MaterialTheme.typography.titleSmall,
                                         color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+                                        modifier = Modifier.padding(
+                                            vertical = 8.dp,
+                                            horizontal = 4.dp
+                                        )
                                     )
                                 }
                                 items(trashedCards) { card ->
@@ -569,7 +598,10 @@ fun MainScreen(
                                 val today = DateHelper.todayDate()
                                 val updated = card.copy(
                                     priority = value,
-                                    feedbackHistory = card.feedbackHistory + FeedbackEntry(today, value)
+                                    feedbackHistory = card.feedbackHistory + FeedbackEntry(
+                                        today,
+                                        value
+                                    )
                                 )
                                 viewModel.updateCard(updated)
                                 viewModel.toggleFinished(updated)
@@ -589,7 +621,6 @@ fun MainScreen(
             }
         )
     }
-
 
 
 }

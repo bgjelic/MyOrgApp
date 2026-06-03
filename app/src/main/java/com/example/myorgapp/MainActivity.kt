@@ -110,7 +110,8 @@ class MainActivity : ComponentActivity() {
                             onToggleFinished = { card -> viewModel.toggleFinished(card) },
                             onDeleteCompleted = { id -> viewModel.deleteCompletedCard(id) },
                             onSettings = { navController.navigate("settings") },
-                            onCalendar = { navController.navigate("calendar") }
+                            onCalendar = { navController.navigate("calendar") },
+                            onStats = { navController.navigate("stats") }
                         )
                     }
                     composable("editor") {
@@ -134,6 +135,12 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("editor")
                             },
                             onToggleFinished = { card -> viewModel.toggleFinished(card) }
+                        )
+                    }
+                    composable("stats") {
+                        StatsScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() }
                         )
                     }
                 }

@@ -103,4 +103,19 @@
     <string name="checklist">Checklist</string>
     <string name="checklist_new_item">New item</string>
     <string name="checklist_empty">No items</string>
+
+    <string name="stats_title">Statistics</string>
+    <string name="content_desc_stats">Statistics</string>
+    <string name="stats_total_created">Total created</string>
+    <string name="stats_completed">Completed</string>
+    <string name="stats_completion_rate">Rate</string>
+    <string name="stats_active_tasks">Active</string>
+    <string name="stats_no_data">Complete some tasks to see statistics</string>
+    <string name="stats_daily">Daily completions</string>
+    <string name="stats_by_tag">By tag</string>
+    <string name="stats_by_priority">By priority</string>
+    <string name="stats_overdue">Overdue</string>
+    <string name="stats_streak">Streak</string>
+    <string name="stats_tasks">tasks</string>
+    <string name="stats_days">days</string>
 </resources>

@@ -1080,4 +1080,87 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             prefs.edit().putString(key, gson.toJson(root)).apply()
         }
     }
+
+    fun getTotalCreated(): Int =
+        _cards.value.size + _completedCards.value.size + _trashedCards.value.size
+
+    fun getTotalCompleted(): Int = _completedCards.value.size
+
+    fun getCompletionRate(): Float {
+        val total = getTotalCreated()
+        return if (total == 0) 0f else getTotalCompleted().toFloat() / total
+    }
+
+    fun getActiveCount(): Int =
+        _cards.value.count { !it.finished && !it.snoozed && !it.trashed }
+
+    fun getDailyCompletions(days: Int): List<Pair<String, Int>> {
+        val today = DateHelper.todayDate()
+        val start = DateHelper.addDays(today, -days + 1)
+        val counts = mutableMapOf<String, Int>()
+        for (card in _completedCards.value) {
+            val d = card.dateCompleted ?: continue
+            if (d < start || d > today) continue
+            counts[d] = (counts[d] ?: 0) + 1
+        }
+        val result = mutableListOf<Pair<String, Int>>()
+        for (i in (days - 1) downTo 0) {
+            val d = DateHelper.addDays(today, -i)
+            result.add(d to (counts[d] ?: 0))
+        }
+        return result
+    }
+
+    fun getTagDistribution(): List<Pair<String, Int>> {
+        val tagCounts = mutableMapOf<String, Int>()
+        for (card in _cards.value) {
+            if (card.trashed) continue
+            for (tagId in card.tagIds) {
+                val tag = _tags.value.find { it.id == tagId } ?: continue
+                tagCounts[tag.name] = (tagCounts[tag.name] ?: 0) + 1
+            }
+        }
+        return tagCounts.entries
+            .sortedByDescending { it.value }
+            .map { it.key to it.value }
+    }
+
+    fun getPriorityDistribution(): List<Pair<Int, Int>> {
+        val counts = mutableMapOf<Int, Int>()
+        for (card in _cards.value) {
+            if (card.trashed) continue
+            val p = card.priority.coerceIn(0, 5)
+            counts[p] = (counts[p] ?: 0) + 1
+        }
+        return counts.entries
+            .sortedBy { it.key }
+            .map { it.key to it.value }
+    }
+
+    fun getWeeklyCompletions(weeks: Int): List<Pair<String, Int>> {
+        val today = DateHelper.todayDate()
+        val result = mutableListOf<Pair<String, Int>>()
+        for (i in (weeks - 1) downTo 0) {
+            val weekEnd = DateHelper.addDays(today, -(i * 7))
+            val weekStart = DateHelper.getStartOfWeek(weekEnd)
+            var count = 0
+            for (card in _completedCards.value) {
+                val d = card.dateCompleted ?: continue
+                if (d >= weekStart && d <= weekEnd) count++
+            }
+            result.add(DateHelper.formatDateShort(weekStart) to count)
+        }
+        return result
+    }
+
+    fun getOverdueCount(): Int {
+        val now = DateHelper.nowCal()
+        return _cards.value.count { card ->
+            if (card.finished || card.trashed || card.snoozed) return@count false
+            val end = card.taskSetTimeEnd ?: return@count false
+            try {
+                DateHelper.parseDateTime(end).before(now)
+            } catch (_: Exception) { false }
+        }
+    }
 }
