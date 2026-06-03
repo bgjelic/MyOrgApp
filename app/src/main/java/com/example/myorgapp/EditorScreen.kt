@@ -142,7 +142,6 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     var repeatDayOfMonth by remember { mutableStateOf<Int?>(initialDayOfMonth ?: 1) }
     var repeatMonth by remember { mutableStateOf<Int?>(initialMonth ?: 1) }
 
-    var showRepeatPicker by remember { mutableStateOf(false) }
     var showCustomRepeatDialog by remember { mutableStateOf(false) }
 
     var checklistItems by remember { mutableStateOf(editing?.checklist ?: emptyList()) }
@@ -988,51 +987,6 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
         )
     }
 
-    if (showRepeatPicker) {
-        AlertDialog(
-            onDismissRequest = { showRepeatPicker = false },
-            title = { Text(selectRepeatLabel) },
-            text = {
-                Column {
-                    listOf(
-                        RepeatType.NONE to repeatNoneLabel,
-                        RepeatType.DAILY to repeatDailyLabel,
-                        RepeatType.WEEKLY to repeatWeeklyLabel
-                    ).forEach { (value, label) ->
-                        TextButton(
-                            onClick = {
-                                repeatType = value
-                                repeatDaysOfWeek = null
-                                showRepeatPicker = false
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(label, modifier = Modifier.fillMaxWidth())
-                        }
-                    }
-                    TextButton(
-                        onClick = {
-                            repeatType = RepeatType.CUSTOM
-                            repeatCustomFrequency = "weekly"
-                            repeatDaysOfWeek = null
-                            repeatDayOfMonth = 1
-                            repeatMonth = 1
-                            showRepeatPicker = false
-                            showCustomRepeatDialog = true
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(repeatCustomLabel, modifier = Modifier.fillMaxWidth())
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showRepeatPicker = false }) {
-                    Text(cancelLabel)
-                }
-            }
-        )
-    }
 
     if (showCustomRepeatDialog) {
         val initialSkipDates = remember(repeatSkipDates) {
