@@ -45,11 +45,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import android.content.Intent
+import android.net.Uri
+import com.example.myorgapp.BuildConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +82,7 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     val selectReminderTimeLabel = stringResource(R.string.settings_select_reminder_time)
     val cancelLabel = stringResource(R.string.cancel)
     val okLabel = stringResource(R.string.ok)
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -284,6 +289,26 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 ) {
                     Text("Add Tag")
                 }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "About",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+
+                SettingsPreferenceItem(
+                    title = "Check for updates",
+                    subtitle = "Current version: ${BuildConfig.VERSION_NAME}",
+                    onClick = {
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            data = Uri.parse("https://github.com/bgjelic/MyOrgApp/releases")
+                        }
+                        context.startActivity(intent)
+                    }
+                )
             }
 
             Spacer(Modifier.height(16.dp))
