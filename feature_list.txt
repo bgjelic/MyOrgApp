@@ -1,0 +1,183 @@
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        COMPLETE APP FEATURE LIST                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. EDITOR — Create / Edit Cards                                           │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 1.1  Name field (with dropdown autocomplete from existing cards)  │   │
+│     │ 1.2  Description field                                           │   │
+│     │ 1.3  Tag selection + Create Tag dialog                           │   │
+│     │ 1.4  Priority Goal chips: [!] [★] [★★] [★★★]                    │   │
+│     │ 1.5  Start date + time picker                                    │   │
+│     │ 1.6  End date + time picker                                      │   │
+│     │ 1.7  Reminders (preset + custom date/time)                        │   │
+│     │ 1.8  Repeat type (Daily/Weekly/Custom) + custom config           │   │
+│     │ 1.9  Checklist (add, delete, drag reorder)                        │   │
+│     │ 1.10 Save (new card / update existing)                            │   │
+│     │ 1.11 Delete from editor (edit mode only)                          │   │
+│     │ 1.12 Warning text if editing a card with negative priority       │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  2. MAIN SCREEN — Active Card List                                         │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 2.1  Search bar (filters by name, description, checklist text)    │   │
+│     │ 2.2  Tag filter chips (All + per tag, scrollable)                 │   │
+│     │ 2.3  "Today: X/Y done" progress header + streak counter          │   │
+│     │ 2.4  Sort toggle (auto / custom)                                  │   │
+│     │ 2.5  Auto-sort: overdue -> today -> future -> finished, priority  │   │
+│     │ 2.6  Custom sort: up/down arrow buttons on each card              │   │
+│     │ 2.7  Card row: priority badge + name + description + time window  │   │
+│     │ 2.8  Card row: overdue indicator (red card, days/hours)           │   │
+│     │ 2.9  Card row: reminder icon, repeat icon, completion count       │   │
+│     │ 2.10 Card row: checklist icon + expand/collapse + check items     │   │
+│     │ 2.11 Card row: tag color dots                                     │   │
+│     │ 2.12 Card row: delete button                                      │   │
+│     │ 2.13 Card row: checkmark button (-> feedback dialog)               │   │
+│     │ 2.14 Click card -> opens editor                                    │   │
+│     │ 2.15 Highlight animation (from notification)                      │   │
+│     │ 2.16 Empty state: "No active cards"                               │   │
+│     │ 2.17 FAB "+" button -> new card                                    │   │
+│     │ 2.18 Snackbar toast messages (e.g. "Complete all checklist first")│   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  3. COMPLETION — Feedback Dialog                                           │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 3.1  Dialog appears on checkmark tap (ALL priorities)             │   │
+│     │ 3.2  7 flat buttons: *** / ** / * / ! / ! / !! / !!!             │   │
+│     │ 3.3  Choosing any button -> card completes with that priority      │   │
+│     │ 3.4  FeedbackEntry appended to card's feedbackHistory             │   │
+│     │ 3.5  Cancel button closes dialog                                  │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  4. HISTORY TAB                                                             │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 4.1  Section: Completed cards (click to restore, delete button)   │   │
+│     │ 4.2  Section: Completed Repeats (xN count, no restore)            │   │
+│     │ 4.3  Section: Snoozed cards (restore, delete)                     │   │
+│     │ 4.4  Section: Trash (restore, permanent delete)                   │   │
+│     │ 4.5  All rows: priority badge (***/**/*/!/!!/!!!)                │   │
+│     │ 4.6  Completed rows: completion date shown                        │   │
+│     │ 4.7  Empty state: "No history"                                    │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  5. DELETE / RESTORE / TRASH                                                │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 5.1  Delete from Active -> Trash (priority preserved)              │   │
+│     │ 5.2  Delete from Completed -> Trash                                │   │
+│     │ 5.3  Delete from Snoozed -> Trash                                  │   │
+│     │ 5.4  Delete from Trash -> permanently gone                         │   │
+│     │ 5.5  Restore from Completed -> Active (un-check)                   │   │
+│     │ 5.6  Restore from Snoozed -> Active (priority=0)                   │   │
+│     │ 5.7  Restore from Trash -> Active (priority=0)                     │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  6. REPEAT SYSTEM                                                           │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 6.1  Create card with repeat type (DAILY / WEEKLY / CUSTOM)       │   │
+│     │ 6.2  Custom repeat: frequency, days-of-week, day-of-month, month  │   │
+│     │ 6.3  Repeat end date                                              │   │
+│     │ 6.4  Repeat skip dates                                            │   │
+│     │ 6.5  Repeat completion: increments counter (xN)                   │   │
+│     │ 6.6  Daily scan: auto-renew completed repeats next day            │   │
+│     │ 6.7  Renewal: resets checklist unchecked, schedules reminders     │   │
+│     │ 6.8  Repeat appears on correct dates in Calendar                  │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  7. CALENDAR                                                                │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 7.1  Day view: hourly timeline (00:00-23:00) + all-day section    │   │
+│     │ 7.2  Week view: 7-column scrollable                               │   │
+│     │ 7.3  Month view: grid with dot indicators for tasks               │   │
+│     │ 7.4  Navigation: chevron arrows (prev/next day/week/month)        │   │
+│     │ 7.5  Today highlighted                                            │   │
+│     │ 7.6  Click day -> switch to Day view                               │   │
+│     │ 7.7  Calendar shows repeat-expanded cards                         │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  8. NOTIFICATIONS / REMINDERS                                               │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 8.1  Schedule alarm for each reminder on a card                   │   │
+│     │ 8.2  Notification appears at trigger time (card name + desc)      │   │
+│     │ 8.3  Notification click -> opens app, highlights card              │   │
+│     │ 8.4  Cancel alarm when card is completed/deleted                  │   │
+│     │ 8.5  Re-schedule alarms after editing card times                  │   │
+│     │ 8.6  BootReceiver: re-schedule all alarms after reboot            │   │
+│     │ 8.7  Permission requests (POST_NOTIFICATIONS + SCHEDULE_EXACT)    │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  9. DAILY AUTO-SCAN (runs at app start)                                     │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 9.1  Runs once per day (tracked by last_scan_date)                │   │
+│     │ 9.2  Overdue 1 day -> priority=-1, reschedule to today            │   │
+│     │ 9.3  Overdue 2-7 days -> priority=-2 (keep date)                  │   │
+│     │ 9.4  Overdue 7+ days -> priority=-3, auto-snooze                  │   │
+│     │ 9.5  Completed repeats -> auto-renew (un-finish, reset checklist) │   │
+│     │ 9.6  Day-starts-at setting controls when scan fires               │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│ 10. SETTINGS                                                                │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 10.1 Theme: System / Light / Dark                                  │   │
+│     │ 10.2 Color theme: Blue / Pink                                      │   │
+│     │ 10.3 Day starts at: hour + minute                                  │   │
+│     │ 10.4 Default reminder time (hour + minute)                         │   │
+│     │ 10.5 Tag management: list, rename, recolor, delete                 │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│ 11. YESTERDAY DIALOG                                                       │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 11.1 Prompts at startup: "Did you forget to check off any?"       │   │
+│     │ 11.2 Shows only once per day                                      │   │
+│     │ 11.3 Lists yesterday's uncompleted cards with checkboxes          │   │
+│     │ 11.4 Check a card -> marks completed with yesterday's date         │   │
+│     │ 11.5 Auto-dismiss when all checked                                │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│ 12. OTHER — Infrastructure & Misc                                           │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 12.1 Navigation: NavHost with 4 routes (main/editor/settings/    │   │
+│     │       calendar), shared ViewModel across all screens              │   │
+│     │ 12.2 Loading overlay: spinner + "Loading..." during init          │   │
+│     │ 12.3 Check sound: playCheckSound() on card completion             │   │
+│     │ 12.4 Streak calculation: walks backward from today, counts       │   │
+│     │       consecutive days where all cards are done                   │   │
+│     │ 12.5 OverdueInfo: calculates days/hours overdue from end time     │   │
+│     │ 12.6 TimeWindowInfo: classifies card time as today/tomorrow/      │   │
+│     │       future/past with formatted time range                       │   │
+│     │ 12.7 DateHelper: all date math utilities (parseDateTime,          │   │
+│     │       addDays, daysBetween, isDateMatchingRepeat, computeNextDate,│   │
+│     │       getCardsForDate/Week/Month expansion, formatting)           │   │
+│     │ 12.8 Snackbar host + toast queue (one-shot messages from VM)      │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│ 13. DATA MODEL                                                              │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 13.1 CardItem: id, name, desc, dates, time, reminders, repeat,   │   │
+│     │       checklist, tags, priority, snoozed, trashed, feedbackHistory│   │
+│     │ 13.2 FeedbackEntry: date + priority                               │   │
+│     │ 13.3 CardReminder: minutesBefore or customTime                    │   │
+│     │ 13.4 ChecklistItem: id, text, checked                             │   │
+│     │ 13.5 CardTag: id, name, colorIndex + tagPalette (8 colors)       │   │
+│     │ 13.6 RepeatType: NONE/DAILY/WEEKDAYS/WEEKENDS/WEEKLY/MONTHLY/    │   │
+│     │       YEARLY/CUSTOM                                               │   │
+│     │ 13.7 Settings: dayStarts, theme, color, defaultReminder           │   │
+│     │ 13.8 ThemeMode: SYSTEM/LIGHT/DARK                                 │   │
+│     │ 13.9 ColorTheme: BLUE/PINK + 4 color schemes (BlueLight,         │   │
+│     │       BlueDark, PinkLight, PinkDark) + Typography                 │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│ 14. PERSISTENCE                                                             │
+│     ┌───────────────────────────────────────────────────────────────────┐   │
+│     │ 14.1 Active cards list         -> "cards_json"                    │   │
+│     │ 14.2 Completed cards list      -> "completed_cards_json"          │   │
+│     │ 14.3 Snoozed cards list        -> "snoozed_cards_json"            │   │
+│     │ 14.4 Trashed cards list         -> "trashed_cards_json"            │   │
+│     │ 14.5 Tags list                 -> "tags_json"                     │   │
+│     │ 14.6 Card order (custom sort)  -> "card_order"                    │   │
+│     │ 14.7 Settings                  -> individual "settings_*" keys    │   │
+│     │ 14.8 Migration from old reminder format to new                    │   │
+│     └───────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  14 groups, ~86 sub-features, FINAL                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
