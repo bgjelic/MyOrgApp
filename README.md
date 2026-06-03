@@ -14,6 +14,7 @@ A local-first personal organizer app for Android. No accounts, no cloud, no trac
 - **Yesterday review** — uncompleted yesterday's cards are shown in a dialog when you open the app
 - **Notifications** — tap opens main screen with 2-second card highlight; "Done" button completes silently
 - **Streak tracking** — consecutive day completion streak displayed on main screen
+- **Statistics** — view total created, completed, completion rate, active tasks, overdue count, daily/weekly completions charts, and breakdowns by tag and priority
 - **Card sort** — toggle between auto sort (time-based) and custom order with up/down arrows
 - **Themes** — Blue (default) or Pink; Light/Dark/System mode independent
 - **No accounts, no network, no tracking** — everything stays on your device
