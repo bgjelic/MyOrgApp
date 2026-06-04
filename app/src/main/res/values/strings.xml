@@ -118,4 +118,20 @@
     <string name="stats_streak">Streak</string>
     <string name="stats_tasks">tasks</string>
     <string name="stats_days">days</string>
+    <string name="stats_7d">7d</string>
+    <string name="stats_14d">14d</string>
+    <string name="stats_30d">30d</string>
+    <string name="stats_weekday_heatmap">Weekly activity</string>
+    <string name="stats_streak_calendar">Streak calendar</string>
+    <string name="stats_best_streak">Best</string>
+    <string name="stats_high">High</string>
+    <string name="stats_medium">Med</string>
+    <string name="stats_low">Low</string>
+    <string name="stats_mon">Mon</string>
+    <string name="stats_tue">Tue</string>
+    <string name="stats_wed">Wed</string>
+    <string name="stats_thu">Thu</string>
+    <string name="stats_fri">Fri</string>
+    <string name="stats_sat">Sat</string>
+    <string name="stats_sun">Sun</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.example.myorgapp
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -23,12 +26,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -42,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,15 +60,20 @@ fun StatsScreen(
     val streak by viewModel.streak.collectAsState()
     viewModel.cards.collectAsState()
     viewModel.completedCards.collectAsState()
+    var selectedDays by remember { mutableStateOf(14) }
 
     val totalCreated = viewModel.getTotalCreated()
     val totalCompleted = viewModel.getTotalCompleted()
     val completionRate = viewModel.getCompletionRate()
     val activeCount = viewModel.getActiveCount()
-    val dailyData = viewModel.getDailyCompletions(14)
+    val dailyData = viewModel.getDailyCompletions(selectedDays)
     val tagData = viewModel.getTagDistribution()
     val priorityData = viewModel.getPriorityDistribution()
     val overdueCount = viewModel.getOverdueCount()
+    val weekdayData = viewModel.getWeekdayDistribution()
+    val gridData = viewModel.getCompletionGrid(12)
+    val overdueByPriority = viewModel.getOverdueByPriority()
+    val tagColorMap = viewModel.tags.value.associate { it.name to it.colorIndex }
 
     val hasData = totalCreated > 0
 
@@ -111,6 +124,10 @@ fun StatsScreen(
                 )
 
                 SectionTitle(stringResource(R.string.stats_daily))
+                DayRangeToggle(
+                    selectedDays = selectedDays,
+                    onSelect = { selectedDays = it }
+                )
                 DailyChart(
                     data = dailyData,
                     modifier = Modifier
@@ -118,9 +135,12 @@ fun StatsScreen(
                         .height(200.dp)
                 )
 
+                SectionTitle(stringResource(R.string.stats_weekday_heatmap))
+                WeekdayHeatmap(data = weekdayData)
+
                 if (tagData.isNotEmpty()) {
                     SectionTitle(stringResource(R.string.stats_by_tag))
-                    TagSection(tagData)
+                    TagSection(data = tagData, tagColorMap = tagColorMap)
                 }
 
                 if (priorityData.isNotEmpty()) {
@@ -128,9 +148,15 @@ fun StatsScreen(
                     PrioritySection(priorityData)
                 }
 
-                BottomRow(
+                SectionTitle(stringResource(R.string.stats_streak_calendar))
+                StreakSection(
+                    streak = streak,
+                    gridData = gridData
+                )
+
+                OverdueSection(
                     overdueCount = overdueCount,
-                    streak = streak
+                    overdueByPriority = overdueByPriority
                 )
             }
         }
@@ -213,6 +239,38 @@ private fun SectionTitle(title: String) {
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.SemiBold
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayRangeToggle(
+    selectedDays: Int,
+    onSelect: (Int) -> Unit
+) {
+    val options = listOf(
+        7 to stringResource(R.string.stats_7d),
+        14 to stringResource(R.string.stats_14d),
+        30 to stringResource(R.string.stats_30d)
+    )
+    SingleChoiceSegmentedButtonRow(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        options.forEachIndexed { index, (days, label) ->
+            SegmentedButton(
+                selected = selectedDays == days,
+                onClick = { onSelect(days) },
+                shape = SegmentedButtonDefaults.itemShape(
+                    index = index,
+                    count = options.size
+                )
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -303,14 +361,64 @@ private fun DailyChart(
 }
 
 @Composable
-private fun TagSection(data: List<Pair<String, Int>>) {
-    val total = data.sumOf { it.second }
-    val chartColors = listOf(
-        Color(0xFFE53935), Color(0xFFFB8C00), Color(0xFFFDD835),
-        Color(0xFF43A047), Color(0xFF1E88E5), Color(0xFF8E24AA),
-        Color(0xFFD81B60), Color(0xFF00ACC1)
-    )
+private fun WeekdayHeatmap(data: List<Pair<String, Int>>) {
+    val maxCount = data.maxOfOrNull { it.second } ?: 1
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            data.forEachIndexed { index, (name, count) ->
+                val intensity = if (maxCount > 0) count.toFloat() / maxCount else 0f
+                val isWeekend = index >= 5
+                Card(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (count > 0) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f + 0.6f * intensity)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isWeekend) MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f)
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "$count",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (count > 0) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
+@Composable
+private fun TagSection(
+    data: List<Pair<String, Int>>,
+    tagColorMap: Map<String, Int>
+) {
+    val total = data.sumOf { it.second }
     val onSurfaceColor = MaterialTheme.colorScheme.onSurface
 
     Card(
@@ -335,8 +443,9 @@ private fun TagSection(data: List<Pair<String, Int>>) {
                     var startAngle = -90f
                     for ((index, pair) in data.withIndex()) {
                         val sweep = (pair.second.toFloat() / total) * 360f
+                        val colorIndex = tagColorMap[pair.first] ?: (index % tagPalette.size)
                         drawArc(
-                            color = chartColors[index % chartColors.size],
+                            color = tagPalette[colorIndex % tagPalette.size],
                             startAngle = startAngle,
                             sweepAngle = sweep,
                             useCenter = false,
@@ -364,18 +473,19 @@ private fun TagSection(data: List<Pair<String, Int>>) {
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                    data.take(6).forEachIndexed { index, pair ->
-                        val pct = (pair.second.toFloat() / total * 100).toInt()
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .padding(end = 4.dp)
-                            ) {
-                                Canvas(modifier = Modifier.fillMaxSize()) {
-                                    drawCircle(chartColors[index % chartColors.size])
-                                }
+                data.forEachIndexed { index, pair ->
+                    val pct = (pair.second.toFloat() / total * 100).toInt()
+                    val colorIndex = tagColorMap[pair.first] ?: (index % tagPalette.size)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .padding(end = 4.dp)
+                        ) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                drawCircle(tagPalette[colorIndex % tagPalette.size])
                             }
+                        }
                         Spacer(Modifier.width(4.dp))
                         Text(
                             text = "${pair.first} $pct%",
@@ -383,13 +493,6 @@ private fun TagSection(data: List<Pair<String, Int>>) {
                             maxLines = 1
                         )
                     }
-                }
-                if (data.size > 6) {
-                    Text(
-                        "+${data.size - 6} more",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
@@ -399,7 +502,6 @@ private fun TagSection(data: List<Pair<String, Int>>) {
 @Composable
 private fun PrioritySection(data: List<Pair<Int, Int>>) {
     val maxCount = data.maxOfOrNull { it.second } ?: 1
-
     val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
 
     Card(
@@ -470,69 +572,168 @@ private fun PrioritySection(data: List<Pair<Int, Int>>) {
 }
 
 @Composable
-private fun BottomRow(
-    overdueCount: Int,
-    streak: Int
+private fun StreakSection(
+    streak: Int,
+    gridData: List<Pair<String, Int>>
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Card(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (overdueCount > 0) {
-                    MaterialTheme.colorScheme.errorContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
+    val weeks = gridData.chunked(7)
+    if (weeks.isEmpty()) return
+
+    val cellSize = 12.dp
+    val cellGap = 2.dp
+    val rowLabelWidth = 26.dp
+    val maxCount = gridData.maxOfOrNull { it.second } ?: 0
+
+    val monthLabels = remember(gridData) {
+        val wk = gridData.chunked(7)
+        val labels = mutableListOf<Pair<Int, String>>()
+        val months = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+        wk.forEachIndexed { col, week ->
+            if (week.isNotEmpty()) {
+                val cal = DateHelper.parseDate(week[0].first)
+                val m = cal.get(Calendar.MONTH)
+                if (labels.isEmpty() || labels.last().second != months[m]) {
+                    labels.add(col to months[m])
                 }
-            )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = overdueCount.toString(),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = if (overdueCount > 0) {
-                        MaterialTheme.colorScheme.onErrorContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    }
-                )
-                Text(
-                    text = "${stringResource(R.string.stats_overdue)} ${stringResource(R.string.stats_tasks)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
-        Card(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+        labels.toList()
+    }
+
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "\uD83D\uDD25 $streak ${stringResource(R.string.stats_days)}",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Bottom
             ) {
+                Spacer(Modifier.width(rowLabelWidth))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(cellGap)
+                ) {
+                    weeks.indices.forEach { col ->
+                        val label = monthLabels.find { it.first == col }
+                        Box(
+                            modifier = Modifier
+                                .width(cellSize)
+                                .height(12.dp),
+                            contentAlignment = Alignment.BottomStart
+                        ) {
+                            if (label != null) {
+                                Text(
+                                    text = label.second,
+                                    fontSize = 8.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            val rowLabelEntries = listOf(0 to "Mon", 2 to "Wed", 4 to "Fri")
+
+            for (row in 0..6) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val entry = rowLabelEntries.find { it.first == row }
+                    Text(
+                        text = entry?.second ?: "",
+                        modifier = Modifier.width(rowLabelWidth),
+                        fontSize = 8.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(cellGap)
+                    ) {
+                        weeks.forEach { week ->
+                            if (row < week.size) {
+                                val count = week[row].second
+                                val color = when {
+                                    count == 0 -> MaterialTheme.colorScheme.surfaceVariant
+                                    maxCount <= 1 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                    count.toFloat() / maxCount < 0.33f -> MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                    count.toFloat() / maxCount < 0.66f -> MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+                                    else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(cellSize)
+                                        .background(color, RoundedCornerShape(2.dp))
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverdueSection(
+    overdueCount: Int,
+    overdueByPriority: Map<Int, Int>
+) {
+    val high = overdueByPriority.filterKeys { it >= 4 }.values.sum()
+    val medium = overdueByPriority.filterKeys { it in 2..3 }.values.sum()
+    val low = overdueByPriority.filterKeys { it <= 1 }.values.sum()
+
+    val breakdown = buildList {
+        if (high > 0) add("$high ${stringResource(R.string.stats_high)}")
+        if (medium > 0) add("$medium ${stringResource(R.string.stats_medium)}")
+        if (low > 0) add("$low ${stringResource(R.string.stats_low)}")
+    }.joinToString(" \u00B7 ")
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (overdueCount > 0) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = overdueCount.toString(),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = if (overdueCount > 0) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+            )
+            Text(
+                text = "${stringResource(R.string.stats_overdue)} ${stringResource(R.string.stats_tasks)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (breakdown.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "$streak",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "${stringResource(R.string.stats_streak)} ${stringResource(R.string.stats_days)}",
+                    text = breakdown,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
         }

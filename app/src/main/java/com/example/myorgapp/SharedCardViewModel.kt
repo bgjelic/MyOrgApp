@@ -1163,4 +1163,58 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             } catch (_: Exception) { false }
         }
     }
+
+    fun getWeekdayDistribution(): List<Pair<String, Int>> {
+        val counts = mutableMapOf<Int, Int>()
+        for (card in _completedCards.value) {
+            val d = card.dateCompleted ?: continue
+            val cal = DateHelper.parseDate(d)
+            val dow = cal.get(Calendar.DAY_OF_WEEK)
+            counts[dow] = (counts[dow] ?: 0) + 1
+        }
+        val order = listOf(
+            Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY,
+            Calendar.THURSDAY, Calendar.FRIDAY, Calendar.SATURDAY, Calendar.SUNDAY
+        )
+        val names = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+        return order.mapIndexed { i, dow ->
+            names[i] to (counts[dow] ?: 0)
+        }
+    }
+
+    fun getCompletionGrid(weeks: Int): List<Pair<String, Int>> {
+        val today = DateHelper.todayDate()
+        val todayDow = DateHelper.getDayOfWeekMondayBased(today)
+        val end = DateHelper.addDays(today, 6 - todayDow)
+        val totalDays = weeks * 7
+        val start = DateHelper.addDays(end, -totalDays + 1)
+        val counts = mutableMapOf<String, Int>()
+        for (card in _completedCards.value) {
+            val d = card.dateCompleted ?: continue
+            if (d < start || d > end) continue
+            counts[d] = (counts[d] ?: 0) + 1
+        }
+        val result = mutableListOf<Pair<String, Int>>()
+        for (i in 0 until totalDays) {
+            val d = DateHelper.addDays(start, i)
+            result.add(d to (counts[d] ?: 0))
+        }
+        return result
+    }
+
+    fun getOverdueByPriority(): Map<Int, Int> {
+        val now = DateHelper.nowCal()
+        val counts = mutableMapOf<Int, Int>()
+        for (card in _cards.value) {
+            if (card.finished || card.trashed || card.snoozed) continue
+            val end = card.taskSetTimeEnd ?: continue
+            try {
+                if (DateHelper.parseDateTime(end).before(now)) {
+                    val p = card.priority.coerceIn(0, 5)
+                    counts[p] = (counts[p] ?: 0) + 1
+                }
+            } catch (_: Exception) { }
+        }
+        return counts
+    }
 }
