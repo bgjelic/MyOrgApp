@@ -4,6 +4,12 @@
 
     <string name="settings_title">Settings</string>
     <string name="settings_appearance">Appearance</string>
+    <string name="language">Language</string>
+    <string name="lang_english">English</string>
+    <string name="lang_croatian">Hrvatski</string>
+    <string name="lang_color_theme">Color theme</string>
+    <string name="lang_manage_tags">Manage Tags</string>
+    <string name="lang_about">About</string>
     <string name="settings_calendar">Calendar</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_theme_system">System</string>
@@ -28,6 +34,7 @@
     <string name="pick_time">Pick Time</string>
     <string name="select_time">Select Time</string>
 
+    <string name="my_organiser">My Organiser</string>
     <string name="tasks">Tasks</string>
     <string name="active">Active</string>
     <string name="completed_tab">Completed</string>

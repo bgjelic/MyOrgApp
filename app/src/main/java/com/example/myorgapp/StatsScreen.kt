@@ -205,10 +205,11 @@ private fun StatCard(
     value: String,
     modifier: Modifier = Modifier
 ) {
-    val gradientBrush = remember {
+    val container = MaterialTheme.colorScheme.primaryContainer
+    val gradientBrush = remember(container) {
         Brush.verticalGradient(
             colors = listOf(
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                container.copy(alpha = 0.35f),
                 Color.Transparent
             )
         )

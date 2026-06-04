@@ -1,0 +1,144 @@
+<resources>
+    <string name="app_name">MO</string>
+    <string name="title_activity_main">MO</string>
+
+    <string name="settings_title">Postavke</string>
+    <string name="settings_appearance">Izgled</string>
+    <string name="settings_calendar">Kalendar</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_theme_system">Sustav</string>
+    <string name="settings_theme_light">Svijetlo</string>
+    <string name="settings_theme_dark">Tamno</string>
+    <string name="language">Jezik</string>
+    <string name="lang_english">English</string>
+    <string name="lang_croatian">Hrvatski</string>
+    <string name="lang_color_theme">Tema boja</string>
+    <string name="lang_manage_tags">Upravljanje oznakama</string>
+    <string name="lang_about">O aplikaciji</string>
+    <string name="settings_day_starts_at">Dan počinje u</string>
+    <string name="settings_select_time">Odaberi vrijeme</string>
+
+    <string name="save">Spremi</string>
+    <string name="cancel">Odustani</string>
+    <string name="delete">Obriši</string>
+    <string name="ok">U redu</string>
+
+    <string name="name">Naziv</string>
+    <string name="name_required">Naziv je obavezan</string>
+    <string name="description">Opis</string>
+    <string name="finished">Završeno</string>
+    <string name="completed">Dovršeno</string>
+    <string name="pick_date">Odaberi datum</string>
+    <string name="task_start">Početak zadatka</string>
+    <string name="task_end">Kraj zadatka</string>
+    <string name="pick_time">Odaberi vrijeme</string>
+    <string name="select_time">Odaberi vrijeme</string>
+
+    <string name="my_organiser">Moj Organizator</string>
+    <string name="tasks">Zadaci</string>
+    <string name="active">Aktivno</string>
+    <string name="completed_tab">Dovršeno</string>
+    <string name="history_tab">Povijest</string>
+    <string name="no_active_cards">Nema aktivnih kartica</string>
+    <string name="no_completed_cards">Nema dovršenih kartica</string>
+    <string name="add_card">Dodaj karticu</string>
+
+    <string name="day">Dan</string>
+    <string name="week">Tjedan</string>
+    <string name="month">Mjesec</string>
+
+    <string name="today">Danas</string>
+    <string name="tomorrow">Sutra</string>
+    <string name="in_x_days">Za %1$d dana</string>
+    <string name="x_days_ago">Prije %1$d dana</string>
+    <string name="overdue_days">%1$d dana prekoračenja</string>
+    <string name="overdue_time">%1$dh %2$dm prekoračenja</string>
+    <string name="overdue_time_mins">%1$dm prekoračenja</string>
+
+    <string name="content_desc_calendar">Kalendar</string>
+    <string name="content_desc_settings">Postavke</string>
+    <string name="content_desc_back">Natrag</string>
+    <string name="content_desc_previous">Prethodno</string>
+    <string name="content_desc_next">Sljedeće</string>
+    <string name="content_desc_finished">Završeno</string>
+    <string name="content_desc_delete">Obriši</string>
+    <string name="content_desc_completed">Dovršeno</string>
+
+    <string name="completed_on">Dovršeno: %1$s</string>
+    <string name="all_day">CIJELI DAN</string>
+
+    <string name="day_mon">Pon</string>
+    <string name="day_tue">Uto</string>
+    <string name="day_wed">Sri</string>
+    <string name="day_thu">Čet</string>
+    <string name="day_fri">Pet</string>
+    <string name="day_sat">Sub</string>
+    <string name="day_sun">Ned</string>
+
+    <string name="reminder">Podsjetnik</string>
+    <string name="reminder_none">Bez</string>
+    <string name="reminder_at_time">U vrijeme</string>
+    <string name="reminder_5min">5 min prije</string>
+    <string name="reminder_15min">15 min prije</string>
+    <string name="reminder_30min">30 min prije</string>
+    <string name="reminder_1hr">1 sat prije</string>
+    <string name="reminder_2hr">2 sata prije</string>
+    <string name="reminder_1day">1 dan prije</string>
+    <string name="select_reminder">Odaberi podsjetnik</string>
+    <string name="reminder_custom">Prilagođeno…</string>
+    <string name="reminder_custom_date">Datum podsjetnika</string>
+    <string name="reminder_custom_time">Vrijeme podsjetnika</string>
+
+    <string name="repeat">Ponavljanje</string>
+    <string name="repeat_none">Bez</string>
+    <string name="repeat_daily">Dnevno</string>
+    <string name="repeat_weekly">Tjedno</string>
+    <string name="repeat_monthly">Mjesečno</string>
+    <string name="repeat_yearly">Godišnje</string>
+    <string name="repeat_custom">Prilagođeno…</string>
+    <string name="select_repeat">Odaberi ponavljanje</string>
+    <string name="custom_repeat_title">Prilagođeno ponavljanje</string>
+    <string name="repeat_on_days">Ponavljaj danima</string>
+    <string name="repeat_end_date">Datum završetka</string>
+    <string name="repeat_skip_date">Preskoči određene datume</string>
+    <string name="repeat_never_ends">Bez kraja</string>
+    <string name="repeat_until">Do</string>
+
+    <string name="settings_default_reminder_time">Zadano vrijeme podsjetnika</string>
+    <string name="settings_select_reminder_time">Odaberi vrijeme podsjetnika</string>
+
+    <string name="checklist">Popis</string>
+    <string name="checklist_new_item">Nova stavka</string>
+    <string name="checklist_empty">Nema stavki</string>
+
+    <string name="stats_title">Statistika</string>
+    <string name="content_desc_stats">Statistika</string>
+    <string name="stats_total_created">Ukupno stvoreno</string>
+    <string name="stats_completed">Dovršeno</string>
+    <string name="stats_completion_rate">Stopa</string>
+    <string name="stats_active_tasks">Aktivno</string>
+    <string name="stats_no_data">Dovrši neke zadatke za statistiku</string>
+    <string name="stats_daily">Dnevna dovršenja</string>
+    <string name="stats_by_tag">Po oznaci</string>
+    <string name="stats_by_priority">Po prioritetu</string>
+    <string name="stats_overdue">Prekoračeno</string>
+    <string name="stats_streak">Niz</string>
+    <string name="stats_tasks">zadataka</string>
+    <string name="stats_days">dana</string>
+    <string name="stats_7d">7d</string>
+    <string name="stats_14d">14d</string>
+    <string name="stats_30d">30d</string>
+    <string name="stats_weekday_heatmap">Tjedna aktivnost</string>
+    <string name="stats_streak_calendar">Kalendar niza</string>
+    <string name="stats_best_streak">Najbolje</string>
+    <string name="stats_high">Visok</string>
+    <string name="stats_medium">Sred</string>
+    <string name="stats_low">Nizak</string>
+    <string name="stats_mon">Pon</string>
+    <string name="stats_tue">Uto</string>
+    <string name="stats_wed">Sri</string>
+    <string name="stats_thu">Čet</string>
+    <string name="stats_fri">Pet</string>
+    <string name="stats_sat">Sub</string>
+    <string name="stats_sun">Ned</string>
+</resources>

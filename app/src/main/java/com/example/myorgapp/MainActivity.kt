@@ -5,6 +5,7 @@ import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import com.example.myorgapp.ui.theme.MyOrgAppTheme
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -42,6 +44,16 @@ import com.example.myorgapp.SharedCardViewModel
 class MainActivity : ComponentActivity() {
     private val viewModel: SharedCardViewModel by viewModels()
     private val notificationCardId = mutableStateOf<Long?>(null)
+
+    override fun attachBaseContext(newBase: Context) {
+        val prefs = newBase.getSharedPreferences("card_pref", MODE_PRIVATE)
+        val lang = prefs.getString("settings_language", "ENGLISH") ?: "ENGLISH"
+        val locale = if (lang == "CROATIAN") Locale("hr") else Locale.ENGLISH
+        Locale.setDefault(locale)
+        val config = Configuration(newBase.resources.configuration)
+        config.setLocale(locale)
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

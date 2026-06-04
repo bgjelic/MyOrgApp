@@ -1021,7 +1021,13 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
         } catch (_: Exception) {
             ColorTheme.BLUE
         }
-        _settings.value = Settings(hour, minute, themeMode, colorTheme, remHour, remMinute)
+        val langStr = prefs.getString("settings_language", AppLanguage.ENGLISH.name)
+        val language = try {
+            AppLanguage.valueOf(langStr ?: AppLanguage.ENGLISH.name)
+        } catch (_: Exception) {
+            AppLanguage.ENGLISH
+        }
+        _settings.value = Settings(hour, minute, themeMode, colorTheme, remHour, remMinute, language)
     }
 
     private fun persistAsync() {
@@ -1043,6 +1049,7 @@ class SharedCardViewModel(application: Application) : AndroidViewModel(applicati
             .putString("settings_color_theme", s.colorTheme.name)
             .putInt("settings_default_reminder_hour", s.defaultReminderHour)
             .putInt("settings_default_reminder_minute", s.defaultReminderMinute)
+            .putString("settings_language", s.language.name)
             .apply()
     }
 

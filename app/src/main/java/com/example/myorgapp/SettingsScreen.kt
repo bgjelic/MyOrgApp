@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import com.example.myorgapp.BuildConfig
@@ -156,7 +157,7 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
 
                 Spacer(Modifier.height(4.dp))
 
-                SettingsSectionHeader(title = "Color theme")
+                SettingsSectionHeader(title = stringResource(R.string.lang_color_theme))
 
                 Row(
                     modifier = Modifier
@@ -197,7 +198,37 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                         modifier = Modifier.weight(1f)
                     )
                 }
-            }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                SettingsSectionHeader(title = stringResource(R.string.language))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = settings.language == AppLanguage.ENGLISH,
+                        onClick = {
+                            viewModel.updateSettings(settings.copy(language = AppLanguage.ENGLISH))
+                            (context as? Activity)?.recreate()
+                        },
+                        label = { Text(stringResource(R.string.lang_english)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = settings.language == AppLanguage.CROATIAN,
+                        onClick = {
+                            viewModel.updateSettings(settings.copy(language = AppLanguage.CROATIAN))
+                            (context as? Activity)?.recreate()
+                        },
+                        label = { Text(stringResource(R.string.lang_croatian)) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SettingsSectionHeader(title = calendarLabel)
@@ -216,7 +247,7 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SettingsSectionHeader(title = "Manage Tags")
+                SettingsSectionHeader(title = stringResource(R.string.lang_manage_tags))
 
                 tags.forEach { tag ->
                     Surface(
@@ -273,7 +304,7 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SettingsSectionHeader(title = "About")
+                SettingsSectionHeader(title = stringResource(R.string.lang_about))
 
                 SettingsPreferenceItem(
                     title = "Check for updates",
