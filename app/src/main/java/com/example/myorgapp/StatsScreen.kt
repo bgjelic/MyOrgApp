@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalDensity
@@ -114,7 +115,7 @@ fun StatsScreen(
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 SummaryRow(
                     totalCreated = totalCreated,
@@ -203,18 +204,34 @@ private fun StatCard(
     value: String,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+    Box(modifier = modifier) {
+        Card(
+            modifier = Modifier.matchParentSize(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            )
         )
-    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
+        )
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .matchParentSize()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = value,
@@ -234,11 +251,20 @@ private fun StatCard(
 
 @Composable
 private fun SectionTitle(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold
-    )
+    Column {
+        Box(
+            modifier = Modifier
+                .width(32.dp)
+                .height(3.dp)
+                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -287,7 +313,7 @@ private fun DailyChart(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Canvas(
             modifier = Modifier
@@ -336,7 +362,14 @@ private fun DailyChart(
                 val y = topPadding + chartHeight - barHeight
 
                 drawRoundRect(
-                    color = primaryColor.copy(alpha = 0.7f + 0.3f * (value.toFloat() / maxValue.coerceAtLeast(1))),
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            primaryColor,
+                            primaryColor.copy(alpha = 0.2f)
+                        ),
+                        startY = y,
+                        endY = y + barHeight
+                    ),
                     topLeft = Offset(x, y),
                     size = Size(barWidth, barHeight),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx())
@@ -365,7 +398,7 @@ private fun WeekdayHeatmap(data: List<Pair<String, Int>>) {
     val maxCount = data.maxOfOrNull { it.second } ?: 1
     Card(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Row(
             modifier = Modifier
@@ -423,7 +456,7 @@ private fun TagSection(
 
     Card(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Row(
             modifier = Modifier
@@ -506,7 +539,7 @@ private fun PrioritySection(data: List<Pair<Int, Int>>) {
 
     Card(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(
             modifier = Modifier
@@ -579,8 +612,8 @@ private fun StreakSection(
     val weeks = gridData.chunked(7)
     if (weeks.isEmpty()) return
 
-    val cellSize = 12.dp
-    val cellGap = 2.dp
+    val cellSize = 10.dp
+    val cellGap = 3.dp
     val rowLabelWidth = 26.dp
     val maxCount = gridData.maxOfOrNull { it.second } ?: 0
 
@@ -602,7 +635,7 @@ private fun StreakSection(
 
     Card(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
