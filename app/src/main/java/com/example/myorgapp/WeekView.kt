@@ -1,6 +1,7 @@
 package com.example.myorgapp
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -128,10 +129,11 @@ private fun WeekTaskCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onEdit() },
+        shape = RoundedCornerShape(12.dp),
         colors = if (task.finished) {
             CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         } else {
-            CardDefaults.cardColors()
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
         }
     ) {
         Row(

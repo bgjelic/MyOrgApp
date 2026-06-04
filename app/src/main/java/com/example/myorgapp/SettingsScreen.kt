@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -110,12 +111,7 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             Spacer(Modifier.height(8.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = appearanceLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
+                SettingsSectionHeader(title = appearanceLabel)
 
                 SettingsPreferenceItem(
                     title = themeLabel,
@@ -160,12 +156,7 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
 
                 Spacer(Modifier.height(4.dp))
 
-                Text(
-                    text = "Color theme",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
+                SettingsSectionHeader(title = "Color theme")
 
                 Row(
                     modifier = Modifier
@@ -209,12 +200,7 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = calendarLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
+                SettingsSectionHeader(title = calendarLabel)
 
                 SettingsPreferenceItem(
                     title = dayStartsAtLabel,
@@ -230,12 +216,7 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Manage Tags",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
+                SettingsSectionHeader(title = "Manage Tags")
 
                 tags.forEach { tag ->
                     Surface(
@@ -292,12 +273,7 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "About",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
+                SettingsSectionHeader(title = "About")
 
                 SettingsPreferenceItem(
                     title = "Check for updates",
@@ -402,9 +378,9 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                                         color = Color.White,
                                         style = MaterialTheme.typography.labelLarge
                                     )
-                                }
-                            }
-                        }
+        }
+    }
+}
                     }
                 }
             },
@@ -487,6 +463,23 @@ fun SettingsScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
     }
 }
 
+@Composable
+private fun SettingsSectionHeader(title: String) {
+    Column {
+        Box(
+            modifier = Modifier
+                .width(32.dp)
+                .height(3.dp)
+                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
 @Composable
 fun SettingsPreferenceItem(
     title: String,

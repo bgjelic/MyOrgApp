@@ -1,6 +1,7 @@
 package com.example.myorgapp
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -102,10 +103,11 @@ private fun HourTaskCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onEdit() },
+        shape = RoundedCornerShape(12.dp),
         colors = if (task.finished) {
             CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         } else {
-            CardDefaults.cardColors()
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
         }
     ) {
         Row(
@@ -145,8 +147,9 @@ private fun AllDayTaskCard(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 2.dp)
             .clickable { onEdit() },
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
         Row(

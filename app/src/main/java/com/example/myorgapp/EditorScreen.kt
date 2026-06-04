@@ -564,6 +564,17 @@ fun EditorScreen(viewModel: SharedCardViewModel, onDone: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 FilterChip(
+                    selected = repeatType == RepeatType.NONE,
+                    onClick = {
+                        repeatType = RepeatType.NONE
+                        repeatDaysOfWeek = null
+                        repeatCustomFrequency = "weekly"
+                        repeatDayOfMonth = null
+                        repeatMonth = null
+                    },
+                    label = { Text(repeatNoneLabel) }
+                )
+                FilterChip(
                     selected = repeatType == RepeatType.DAILY,
                     onClick = {
                         repeatType = RepeatType.DAILY

@@ -24,6 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
@@ -58,7 +60,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -71,6 +73,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 
@@ -178,8 +181,8 @@ fun MainScreen(
                         card.name.contains(searchQuery, ignoreCase = true) ||
                         card.description.contains(searchQuery, ignoreCase = true) ||
                         card.checklist.any { it.text.contains(searchQuery, ignoreCase = true) }
-            }
     }
+}
 
     val tasksLabel = stringResource(R.string.tasks)
     val activeLabel = stringResource(R.string.active)
@@ -206,7 +209,7 @@ fun MainScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = { Text(tasksLabel) },
                 actions = {
                     IconButton(onClick = onCalendar) {
@@ -389,11 +392,11 @@ fun MainScreen(
                                                 modifier = Modifier.size(16.dp),
                                                 tint = if (sortMode == "custom") MaterialTheme.colorScheme.primary
                                                 else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+            )
+            }
+        }
+    }
+}
                             items(sortedCards) { card ->
                                 val overdueInfo = remember(card) { getOverdueInfo(card) }
                                 ActiveCardRow(
@@ -447,21 +450,25 @@ fun MainScreen(
                         ) {
                             if (hasRegular) {
                                 item {
-                                    Text(
-                                        text = stringResource(R.string.completed_tab),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(
-                                            vertical = 8.dp,
-                                            horizontal = 4.dp
+                                    Column(Modifier.padding(vertical = 8.dp, horizontal = 4.dp)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .width(32.dp)
+                                                .height(3.dp)
+                                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
                                         )
-                                    )
-                                    Text(
-                                        text = "(click to restore)",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 4.dp)
-                                    )
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            text = stringResource(R.string.completed_tab),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            text = "(click to restore)",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                                 items(completedCards) { card ->
                                     CompletedCardRow(
@@ -473,15 +480,9 @@ fun MainScreen(
                             }
                             if (hasRepeats) {
                                 item {
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        text = "Completed Repeats",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(
-                                            vertical = 8.dp,
-                                            horizontal = 4.dp
-                                        )
+                                    SectionHeader(
+                                        title = "Completed Repeats",
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
                                     )
                                 }
                                 items(completedRepeats) { card ->
@@ -490,15 +491,9 @@ fun MainScreen(
                             }
                             if (hasSnoozed) {
                                 item {
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        text = "Snoozed",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(
-                                            vertical = 8.dp,
-                                            horizontal = 4.dp
-                                        )
+                                    SectionHeader(
+                                        title = "Snoozed",
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
                                     )
                                 }
                                 items(snoozedCards) { card ->
@@ -511,15 +506,9 @@ fun MainScreen(
                             }
                             if (hasTrashed) {
                                 item {
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        text = "Trash",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(
-                                            vertical = 8.dp,
-                                            horizontal = 4.dp
-                                        )
+                                    SectionHeader(
+                                        title = "Trash",
+                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
                                     )
                                 }
                                 items(trashedCards) { card ->
@@ -667,6 +656,15 @@ private fun ActiveCardRow(
     val checkExpanded = remember { mutableStateOf(false) }
     val isHighlighted = highlightedCardId == card.id
 
+    val gradientBrush = if (!isHighlighted && !card.finished && overdueText == null) {
+        Brush.verticalGradient(
+            colors = listOf(
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
+                Color.Transparent
+            )
+        )
+    } else null
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -674,19 +672,31 @@ private fun ActiveCardRow(
             .then(
                 if (isHighlighted) Modifier.border(
                     BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
-                    RoundedCornerShape(8.dp)
+                    RoundedCornerShape(12.dp)
                 ) else Modifier
             )
             .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
         colors = when {
             isHighlighted -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
             card.finished -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             overdueText != null -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-            else -> CardDefaults.cardColors()
+            else -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
         }
     ) {
         Row(
-            modifier = Modifier.padding(start = 4.dp),
+            modifier = Modifier
+                .padding(start = 4.dp)
+                .then(
+                    if (gradientBrush != null)
+                        Modifier.drawBehind {
+                            drawRoundRect(
+                                brush = gradientBrush,
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx())
+                            )
+                        }
+                    else Modifier
+                ),
             verticalAlignment = Alignment.Top
         ) {
             IconButton(onClick = onToggleFinished) {
@@ -905,6 +915,8 @@ private fun CompletedCardRow(
             .fillMaxWidth()
             .padding(4.dp)
             .clickable { onToggle() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Row(
             modifier = Modifier.padding(start = 12.dp),
@@ -972,7 +984,9 @@ private fun CompletedRepeatRow(card: CardItem) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(4.dp)
+            .padding(4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Row(
             modifier = Modifier.padding(start = 12.dp),
@@ -1022,7 +1036,9 @@ private fun SnoozedCardRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(4.dp)
+            .padding(4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Row(
             modifier = Modifier.padding(start = 12.dp),
@@ -1074,7 +1090,9 @@ private fun TrashCardRow(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(4.dp)
+            .padding(4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
         Row(
             modifier = Modifier.padding(start = 12.dp),
@@ -1114,5 +1132,26 @@ private fun TrashCardRow(
                 Icon(Icons.Default.Delete, contentDescription = "Permanently delete")
             }
         }
+    }
+}
+
+@Composable
+private fun SectionHeader(
+    title: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier) {
+        Box(
+            modifier = Modifier
+                .width(32.dp)
+                .height(3.dp)
+                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+        )
     }
 }
